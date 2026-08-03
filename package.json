@@ -1,0 +1,25 @@
+{
+  "name": "asset-divergence-lab",
+  "version": "0.1.0",
+  "private": true,
+  "description": "房地产资产分化与买房/理财收益比较工具",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview",
+    "test": "vitest run",
+    "check": "npm run test && npm run build"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.3",
+    "vite": "^6.0.5",
+    "vitest": "^4.1.10"
+  },
+  "dependencies": {
+    "@phosphor-icons/web": "^2.1.2",
+    "@types/three": "^0.185.3",
+    "gsap": "^3.15.0",
+    "three": "^0.185.1"
+  }
+}
