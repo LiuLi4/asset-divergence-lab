@@ -128,13 +128,14 @@ export function initScrollMotion() {
       scrollTrigger: { trigger: '.ticker', start: 'top bottom', end: 'bottom top', scrub: 1.2 },
     })
 
-    gsap.set('.taxonomy-grid, .criteria-list', { opacity: 1, y: 0 })
+    gsap.set('.taxonomy-grid, .scorecard-layout', { opacity: 1, y: 0 })
 
     const chapterElements = gsap.utils.toArray<HTMLElement>([
       '.model-section .section-intro',
       '.model-layout',
       '.taxonomy-section .section-intro',
-      '.selection-copy',
+      '.selection-section .section-intro',
+      '.scorecard-layout',
     ])
     chapterElements.forEach((element) => {
       gsap.fromTo(element, { opacity: 0, y: 40 }, {
@@ -165,13 +166,13 @@ export function initScrollMotion() {
       ease: 'power3.out',
       scrollTrigger: { trigger: '.taxonomy-grid', start: 'top 82%', once: true },
     })
-    gsap.from('.criterion', {
+    gsap.from('.score-field, .comparison-row', {
       opacity: 0,
-      x: 28,
-      stagger: 0.065,
-      duration: 0.58,
+      y: 16,
+      stagger: 0.045,
+      duration: 0.5,
       ease: 'power2.out',
-      scrollTrigger: { trigger: '.criteria-list', start: 'top 82%', once: true },
+      scrollTrigger: { trigger: '.scorecard-layout', start: 'top 82%', once: true },
     })
 
     return () => heroTimeline.kill()
@@ -181,7 +182,8 @@ export function initScrollMotion() {
     gsap.set([
       '[data-reveal]',
       '.taxonomy-card',
-      '.criterion',
+      '.score-field',
+      '.comparison-row',
       '.hero-copy > *',
       '.capability-card',
       '.three-map .stage-head',
