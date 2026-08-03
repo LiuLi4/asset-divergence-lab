@@ -86,14 +86,9 @@ export function animateResults(root: HTMLElement) {
   if (reducedMotion) return
 
   gsap.fromTo(
-    root.querySelectorAll('.decision-card, .wealth-card, .risk-card, .snapshot-grid > div'),
-    { opacity: 0, y: 14 },
-    { opacity: 1, y: 0, duration: 0.46, stagger: 0.045, ease: 'power2.out', overwrite: true },
-  )
-  gsap.fromTo(
     root.querySelectorAll('.bar-track i, .risk-meter i'),
     { scaleX: 0, transformOrigin: '50% center' },
-    { scaleX: 1, duration: 0.72, ease: 'power3.out', overwrite: true },
+    { scaleX: 1, duration: 0.42, ease: 'power2.out', overwrite: 'auto' },
   )
 }
 
@@ -105,8 +100,9 @@ export function initScrollMotion() {
     const heroTimeline = gsap.timeline({ defaults: { ease: 'power3.out' } })
     heroTimeline
       .from('.hero-copy .overline', { opacity: 0, y: 14, duration: 0.5 })
-      .from('.hero-copy h1', { opacity: 0, y: 42, duration: 0.86 }, '-=.26')
-      .from('.hero-copy p, .hero-actions', { opacity: 0, y: 22, duration: 0.62, stagger: 0.09 }, '-=.48')
+      .from('.hero-copy h1 > span, .hero-copy h1 > em', { opacity: 0, y: 32, filter: 'blur(7px)', duration: 0.72, stagger: 0.08 }, '-=.26')
+      .from('.hero-copy p', { opacity: 0, y: 18, filter: 'blur(4px)', duration: 0.54 }, '-=.38')
+      .from('.hero-actions > *', { opacity: 0, y: 14, duration: 0.46, stagger: 0.07 }, '-=.34')
       .from('.capability-card', {
         opacity: 0,
         y: 18,

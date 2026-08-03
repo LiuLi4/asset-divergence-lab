@@ -2086,3 +2086,473 @@ input:focus-visible,
   .results-panel { width: 100%; min-width: 0; }
   .range-meta { min-width: 0; }
 }
+
+/* Interface polish: small details that compound */
+:root {
+  --radius-panel: 24px;
+  --radius-card: 16px;
+  --radius-control: 10px;
+  --border-shadow:
+    0 0 0 1px rgba(37, 16, 68, 0.07),
+    0 1px 2px -1px rgba(37, 16, 68, 0.08),
+    0 8px 24px -12px rgba(37, 16, 68, 0.18);
+  --border-shadow-hover:
+    0 0 0 1px rgba(37, 16, 68, 0.11),
+    0 2px 4px -1px rgba(37, 16, 68, 0.1),
+    0 14px 32px -14px rgba(37, 16, 68, 0.24);
+}
+
+h1,
+h2,
+h3,
+.decision-row strong,
+.comparison-row b {
+  text-wrap: balance;
+}
+
+p,
+.field small,
+.score-field em,
+.evidence-checklist li {
+  text-wrap: pretty;
+}
+
+.range-output input,
+.wealth-values b,
+.snapshot-grid strong,
+.scenario-matrix,
+.risk-main strong,
+.score-ring,
+.comparison-row > strong,
+.decision-badge,
+.metric-foot b {
+  font-variant-numeric: tabular-nums;
+}
+
+.input-panel,
+.taxonomy-card,
+.candidate-panel,
+.comparison-panel,
+.method-grid article {
+  border-color: transparent;
+  border-radius: var(--radius-panel);
+  box-shadow: var(--border-shadow);
+}
+
+.input-panel,
+.candidate-panel,
+.comparison-panel {
+  background: rgba(250, 248, 255, 0.82);
+  -webkit-backdrop-filter: blur(18px);
+  backdrop-filter: blur(18px);
+}
+
+.results-panel {
+  overflow: hidden;
+  border: 0;
+  border-radius: var(--radius-panel);
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.07),
+    0 28px 70px -24px rgba(37, 16, 68, 0.48);
+}
+
+.decision-card,
+.wealth-card,
+.risk-card,
+.matrix-card {
+  border-color: transparent;
+  border-radius: var(--radius-card);
+  box-shadow: inset 0 0 0 1px rgba(241, 238, 251, 0.12);
+}
+
+.decision-card.positive,
+.decision-card.negative {
+  border-top-color: transparent;
+}
+
+.decision-card.positive {
+  box-shadow: inset 0 0 0 1px rgba(173, 150, 223, 0.28);
+}
+
+.decision-card.negative {
+  box-shadow: inset 0 0 0 1px rgba(182, 93, 122, 0.28);
+}
+
+.decision-card:hover,
+.wealth-card:hover,
+.risk-card:hover {
+  border-color: transparent;
+  box-shadow: inset 0 0 0 1px rgba(241, 238, 251, 0.22), 0 14px 28px -20px rgba(0, 0, 0, 0.5);
+}
+
+.snapshot-grid {
+  overflow: hidden;
+  border: 0;
+  border-radius: var(--radius-card);
+  box-shadow: inset 0 0 0 1px rgba(241, 238, 251, 0.12);
+}
+
+.range-output,
+.growth-presets button,
+.source-links a {
+  border-color: transparent;
+  border-radius: var(--radius-control);
+  box-shadow: var(--border-shadow);
+}
+
+.range-output {
+  background: rgba(255, 255, 255, 0.68);
+  transition: box-shadow 180ms ease, background 180ms ease, transform 180ms ease;
+}
+
+.range-output:focus-within {
+  background: var(--surface-strong);
+  box-shadow: 0 0 0 2px rgba(119, 96, 179, 0.24), var(--border-shadow-hover);
+  transform: translateY(-1px);
+}
+
+.help {
+  width: 24px;
+  height: 24px;
+  margin: -4px;
+  border-color: transparent;
+  box-shadow: 0 0 0 1px rgba(37, 16, 68, 0.12);
+  transition: color 180ms ease, box-shadow 180ms ease, transform 180ms ease;
+}
+
+.help:hover {
+  color: var(--ink);
+  box-shadow: 0 0 0 1px rgba(37, 16, 68, 0.22), 0 4px 10px -7px rgba(37, 16, 68, 0.45);
+  transform: scale(1.05);
+}
+
+.primary-button {
+  border: 0;
+  border-radius: 12px;
+  box-shadow: 0 0 0 1px var(--ink), 0 9px 22px -12px rgba(37, 16, 68, 0.58);
+}
+
+.primary-button,
+.text-link,
+.save-button,
+.reset-button,
+.capability-card,
+.select-mark,
+.comparison-row,
+.source-links a {
+  transition-duration: 180ms;
+  transition-timing-function: ease;
+}
+
+.primary-button i,
+.text-link i,
+.capability-card > i:last-child,
+.select-mark i,
+.comparison-row > i,
+.source-links i,
+.reset-button i {
+  display: inline-block;
+  transition: opacity 160ms ease, transform 220ms cubic-bezier(0.2, 0.8, 0.2, 1), filter 160ms ease;
+}
+
+.primary-button:hover i,
+.select-mark:hover i,
+.source-links a:hover i {
+  transform: translate(2px, -2px);
+}
+
+.text-link:hover i {
+  transform: translateY(2px);
+}
+
+.reset-button:hover i {
+  transform: rotate(-42deg);
+}
+
+.capability-card:hover > i:last-child,
+.comparison-row:hover > i {
+  transform: translate(3px, 1px);
+}
+
+.save-button {
+  display: inline-flex;
+  min-width: 102px;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  border-color: transparent;
+  box-shadow: var(--border-shadow);
+}
+
+.save-button > i {
+  font-size: 15px;
+  transition: opacity 150ms ease, transform 220ms cubic-bezier(0.2, 0.8, 0.2, 1), filter 150ms ease;
+}
+
+.save-button [data-save-label] {
+  margin: 0;
+  font-size: 11px;
+}
+
+.save-button:hover {
+  box-shadow: var(--border-shadow-hover);
+}
+
+.save-button:hover > i {
+  transform: translateY(2px);
+}
+
+.save-button.is-success {
+  color: #35634f;
+  background: rgba(93, 141, 120, 0.1);
+  box-shadow: 0 0 0 1px rgba(93, 141, 120, 0.2), 0 8px 20px -14px rgba(53, 99, 79, 0.7);
+}
+
+.save-button.is-success > i {
+  transform: scale(1.08);
+}
+
+.scenario-switch {
+  border: 0;
+  box-shadow: inset 0 0 0 1px rgba(241, 238, 251, 0.16);
+}
+
+.scenario-toggle {
+  min-height: 34px;
+  transition: color 180ms ease, background 180ms ease, box-shadow 180ms ease, transform 180ms ease;
+}
+
+.scenario-toggle:hover {
+  color: var(--paper);
+}
+
+.scenario-toggle:active {
+  transform: scale(0.97);
+}
+
+.scenario-toggle.active {
+  box-shadow: 0 4px 12px -8px rgba(0, 0, 0, 0.6);
+}
+
+.advanced-inputs summary > span > i {
+  transition: transform 220ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.advanced-inputs[open] summary > span > i {
+  transform: rotate(90deg);
+}
+
+.score-summary {
+  border-radius: calc(var(--radius-card) + 2px);
+}
+
+.score-field {
+  border-color: transparent;
+  border-radius: 14px;
+  box-shadow: inset 0 0 0 1px rgba(37, 16, 68, 0.08);
+  transition: box-shadow 180ms ease, background 180ms ease, transform 180ms ease;
+}
+
+.score-field:focus-within {
+  background: rgba(255, 255, 255, 0.58);
+  box-shadow: 0 0 0 2px rgba(119, 96, 179, 0.18), var(--border-shadow);
+  transform: translateY(-1px);
+}
+
+.comparison-row {
+  border: 0;
+  border-radius: 12px;
+  box-shadow: inset 0 0 0 1px rgba(37, 16, 68, 0.06);
+}
+
+.comparison-row.active {
+  border-color: transparent;
+  box-shadow: var(--border-shadow-hover);
+}
+
+.candidate-tabs button {
+  min-width: 40px;
+  min-height: 40px;
+  border: 0;
+  border-radius: 11px;
+  box-shadow: var(--border-shadow);
+  transition: color 180ms ease, background 180ms ease, box-shadow 180ms ease, transform 180ms ease;
+}
+
+.candidate-tabs button:active {
+  transform: scale(0.96);
+}
+
+.method-grid article {
+  border-radius: 20px;
+}
+
+.menu-button {
+  position: relative;
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  box-shadow: none;
+  transition: background 180ms ease, box-shadow 180ms ease, transform 180ms ease;
+}
+
+.menu-button:hover {
+  background: rgba(37, 16, 68, 0.05);
+  box-shadow: var(--border-shadow);
+}
+
+.menu-button:active {
+  transform: scale(0.96);
+}
+
+.menu-button > i {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  transition: opacity 160ms ease, transform 240ms cubic-bezier(0.2, 0.8, 0.2, 1), filter 160ms ease;
+}
+
+.menu-close-icon {
+  opacity: 0;
+  filter: blur(3px);
+  transform: scale(0.75) rotate(-28deg);
+}
+
+.topbar.nav-open .menu-open-icon {
+  opacity: 0;
+  filter: blur(3px);
+  transform: scale(0.75) rotate(28deg);
+}
+
+.topbar.nav-open .menu-close-icon {
+  opacity: 1;
+  filter: none;
+  transform: none;
+}
+
+.toast-region {
+  position: fixed;
+  z-index: 80;
+  right: 24px;
+  bottom: 24px;
+  display: flex;
+  max-width: min(360px, calc(100vw - 36px));
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: 13px;
+  background: rgba(37, 16, 68, 0.94);
+  color: var(--paper);
+  box-shadow: 0 18px 40px -20px rgba(37, 16, 68, 0.75), inset 0 0 0 1px rgba(255, 255, 255, 0.12);
+  opacity: 0;
+  filter: blur(4px);
+  pointer-events: none;
+  transform: translateY(7px) scale(0.98);
+  transition: opacity 180ms ease, filter 180ms ease, transform 240ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.toast-region.is-visible {
+  opacity: 1;
+  filter: none;
+  transform: none;
+}
+
+.toast-region i {
+  color: #d5c2ff;
+  font-size: 17px;
+}
+
+.toast-region span {
+  font-size: 11px;
+  font-weight: 700;
+  text-wrap: pretty;
+}
+
+@media (max-width: 900px) {
+  .topbar nav {
+    position: absolute;
+    top: 68px;
+    right: 12px;
+    left: 12px;
+    display: flex;
+    align-self: auto;
+    flex-direction: column;
+    gap: 0;
+    padding: 10px 16px;
+    border: 0;
+    border-radius: 20px;
+    background: rgba(250, 248, 255, 0.96);
+    box-shadow: var(--border-shadow-hover), 0 24px 60px -34px rgba(37, 16, 68, 0.5);
+    opacity: 0;
+    visibility: hidden;
+    filter: blur(4px);
+    pointer-events: none;
+    transform: translateY(-8px) scale(0.985);
+    transform-origin: top center;
+    transition:
+      opacity 160ms ease,
+      filter 160ms ease,
+      transform 240ms cubic-bezier(0.2, 0.8, 0.2, 1),
+      visibility 0s linear 240ms;
+  }
+
+  .topbar.nav-open nav {
+    top: 68px;
+    right: 12px;
+    left: 12px;
+    display: flex;
+    padding: 10px 16px;
+    border: 0;
+    border-radius: 20px;
+    background: rgba(250, 248, 255, 0.96);
+    box-shadow: var(--border-shadow-hover), 0 24px 60px -34px rgba(37, 16, 68, 0.5);
+    opacity: 1;
+    visibility: visible;
+    filter: none;
+    pointer-events: auto;
+    transform: none;
+    transition-delay: 0s;
+  }
+
+  .topbar.nav-open nav a {
+    border-bottom-color: rgba(37, 16, 68, 0.08);
+  }
+}
+
+@media (max-width: 600px) {
+  .toast-region {
+    right: 18px;
+    bottom: 18px;
+    left: 18px;
+  }
+
+  .save-button {
+    min-width: 42px;
+    min-height: 42px;
+    padding: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .toast-region,
+  .menu-button > i,
+  .topbar nav,
+  .advanced-inputs summary > span > i {
+    filter: none !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+@media (prefers-contrast: more) {
+  .input-panel,
+  .taxonomy-card,
+  .candidate-panel,
+  .comparison-panel,
+  .method-grid article,
+  .range-output,
+  .growth-presets button,
+  .source-links a {
+    border: 1px solid var(--line-strong);
+  }
+}
