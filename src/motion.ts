@@ -94,31 +94,27 @@ export function animateResults(root: HTMLElement) {
 
 export function initScrollMotion() {
   const media = gsap.matchMedia()
-  const navigationTriggers: ScrollTrigger[] = []
   captureResultValues(document)
-
-  document.querySelectorAll<HTMLAnchorElement>('.lucr-topbar nav a[href^="#"]').forEach((link) => {
-    const section = document.querySelector<HTMLElement>(link.hash)
-    if (!section) return
-    navigationTriggers.push(ScrollTrigger.create({
-      trigger: section,
-      start: 'top 38%',
-      end: 'bottom 38%',
-      onToggle: ({ isActive }) => {
-        link.classList.toggle('active', isActive)
-        if (isActive) link.setAttribute('aria-current', 'location')
-        else link.removeAttribute('aria-current')
-      },
-    }))
-  })
 
   media.add('(prefers-reduced-motion: no-preference)', () => {
     const heroTimeline = gsap.timeline({ defaults: { ease: 'power3.out' } })
     heroTimeline
-      .from('.hero-copy h1 > span, .hero-copy h1 > em', { opacity: 0, y: 32, filter: 'blur(7px)', duration: 0.72, stagger: 0.08 })
+      .from('.hero-copy .overline', { opacity: 0, y: 14, duration: 0.5 })
+      .from('.hero-copy h1 > span, .hero-copy h1 > em', { opacity: 0, y: 32, filter: 'blur(7px)', duration: 0.72, stagger: 0.08 }, '-=.26')
       .from('.hero-copy p', { opacity: 0, y: 18, filter: 'blur(4px)', duration: 0.54 }, '-=.38')
       .from('.hero-actions > *', { opacity: 0, y: 14, duration: 0.46, stagger: 0.07 }, '-=.34')
-      .from('.lucr-hero-map', { opacity: 0, y: 80, scale: 0.94, duration: 0.9 }, '-=.28')
+      .from('.capability-card', {
+        opacity: 0,
+        y: 18,
+        duration: 0.58,
+        stagger: 0.07,
+      }, '-=.38')
+      .from('.three-map .stage-head, .three-map .stage-legend, .three-map .map-coordinates', {
+        opacity: 0,
+        y: 10,
+        duration: 0.5,
+        stagger: 0.06,
+      }, '-=.42')
 
     gsap.to('.hero-copy', {
       yPercent: 12,
@@ -126,22 +122,12 @@ export function initScrollMotion() {
       ease: 'none',
       scrollTrigger: { trigger: '.hero', start: 'top top', end: 'bottom top', scrub: 0.9 },
     })
-    gsap.to('.lucr-hero-map', {
-      yPercent: -7,
-      scale: 1.035,
+    gsap.to('.ticker-inner', {
+      xPercent: -8,
       ease: 'none',
-      scrollTrigger: { trigger: '.hero', start: 'top top', end: 'bottom top', scrub: 1.1 },
+      scrollTrigger: { trigger: '.ticker', start: 'top bottom', end: 'bottom top', scrub: 1.2 },
     })
-    gsap.fromTo('.lucr-chapter-heading span:first-child', { xPercent: -9 }, {
-      xPercent: 3,
-      ease: 'none',
-      scrollTrigger: { trigger: '.lucr-chapter-heading', start: 'top bottom', end: 'bottom top', scrub: 1 },
-    })
-    gsap.fromTo('.lucr-chapter-heading span:last-child', { xPercent: 9 }, {
-      xPercent: -3,
-      ease: 'none',
-      scrollTrigger: { trigger: '.lucr-chapter-heading', start: 'top bottom', end: 'bottom top', scrub: 1 },
-    })
+
     gsap.set('.taxonomy-grid, .scorecard-layout', { opacity: 1, y: 0 })
 
     const chapterElements = gsap.utils.toArray<HTMLElement>([
@@ -188,14 +174,6 @@ export function initScrollMotion() {
       ease: 'power2.out',
       scrollTrigger: { trigger: '.scorecard-layout', start: 'top 82%', once: true },
     })
-    gsap.from('.method-steps article', {
-      opacity: 0,
-      y: 22,
-      stagger: 0.1,
-      duration: 0.62,
-      ease: 'power3.out',
-      scrollTrigger: { trigger: '.method-steps', start: 'top 82%', once: true },
-    })
 
     return () => heroTimeline.kill()
   })
@@ -218,7 +196,6 @@ export function initScrollMotion() {
   return () => {
     numberTweens.forEach((tween) => tween.kill())
     numberTweens.clear()
-    navigationTriggers.forEach((trigger) => trigger.kill())
     media.revert()
   }
 }
