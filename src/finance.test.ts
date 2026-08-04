@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { annuityPayment, calculateFinance, findBreakEven, type FinanceInputs } from './finance'
+import { annuityPayment, calculateFinance, calculateWealthTimeline, findBreakEven, type FinanceInputs } from './finance'
 
 const base: FinanceInputs = {
   homePrice: 500,
@@ -44,5 +44,15 @@ describe('finance model', () => {
     const selfUse = calculateFinance(base, 'self')
     const rental = calculateFinance(base, 'rent')
     expect(rental.buyWealth).toBeGreaterThan(selfUse.buyWealth)
+  })
+
+  it('builds a yearly wealth timeline that matches the terminal calculation', () => {
+    const timeline = calculateWealthTimeline(base, 'self')
+    const result = calculateFinance(base, 'self')
+
+    expect(timeline).toHaveLength(base.years + 1)
+    expect(timeline[0].year).toBe(0)
+    expect(timeline[timeline.length - 1].buyWealth).toBeCloseTo(result.buyWealth)
+    expect(timeline[timeline.length - 1].investWealth).toBeCloseTo(result.investWealth)
   })
 })

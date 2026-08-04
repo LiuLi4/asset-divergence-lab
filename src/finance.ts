@@ -39,6 +39,12 @@ export interface FinanceResult {
   repaidPrincipal: number
 }
 
+export interface WealthTimelinePoint {
+  year: number
+  buyWealth: number
+  investWealth: number
+}
+
 const toYuan = (wan: number) => wan * 10_000
 const toWan = (yuan: number) => yuan / 10_000
 
@@ -138,6 +144,14 @@ function calculateAtGrowth(inputs: FinanceInputs, mode: ViewMode, appreciation: 
 
 export function calculateFinance(inputs: FinanceInputs, mode: ViewMode): FinanceResult {
   return calculateAtGrowth(inputs, mode, inputs.appreciation, true)
+}
+
+export function calculateWealthTimeline(inputs: FinanceInputs, mode: ViewMode): WealthTimelinePoint[] {
+  const wholeYears = Math.max(0, Math.floor(inputs.years))
+  return Array.from({ length: wholeYears + 1 }, (_, year) => {
+    const result = calculateAtGrowth({ ...inputs, years: year }, mode, inputs.appreciation, false)
+    return { year, buyWealth: result.buyWealth, investWealth: result.investWealth }
+  })
 }
 
 export function findBreakEven(inputs: FinanceInputs, mode: ViewMode) {

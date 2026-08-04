@@ -4496,3 +4496,400 @@ footer {
     padding-top: 0;
   }
 }
+
+/* Calculator workspace — compact inputs, expanded yearly results */
+.hero.reference-hero {
+  overflow: clip;
+}
+
+.model-section#model .model-layout {
+  grid-template-columns: minmax(360px, 0.78fr) minmax(0, 1.62fr);
+  gap: 0;
+  overflow: hidden;
+  border: 1px solid rgba(37, 16, 68, 0.12);
+  border-radius: 26px;
+  background: rgba(250, 248, 255, 0.84);
+  box-shadow: 0 30px 80px -42px rgba(37, 16, 68, 0.48);
+}
+
+.model-section#model .input-panel,
+.model-section#model .results-panel {
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.model-section#model .input-panel {
+  padding: 24px 24px 22px;
+  background: rgba(250, 248, 255, 0.96);
+}
+
+.model-section#model .results-panel {
+  padding: 24px 28px 28px;
+  box-shadow: inset 1px 0 rgba(241, 238, 251, 0.1);
+}
+
+.input-panel .panel-head {
+  align-items: center;
+}
+
+.input-panel .panel-head h3 {
+  margin: 6px 0 0;
+  font-size: 1.125rem;
+}
+
+.input-panel > .input-group,
+.advanced-inputs .input-group {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  column-gap: 14px;
+  row-gap: 0;
+  padding: 16px 0 0;
+}
+
+.input-panel > .input-group .group-title {
+  grid-column: 1 / -1;
+  margin-bottom: 12px;
+}
+
+.input-panel .range-field {
+  margin: 0 0 12px;
+}
+
+.input-panel .range-meta {
+  gap: 8px;
+  margin-bottom: 1px;
+}
+
+.input-panel .field-label {
+  min-width: 0;
+  font-size: 0.75rem;
+  line-height: 1.3;
+}
+
+.input-panel .help {
+  width: 28px;
+  height: 28px;
+  margin: -6px;
+}
+
+.input-panel .range-output {
+  width: 88px;
+  min-width: 80px;
+  min-height: 36px;
+  padding-inline: 8px;
+}
+
+.input-panel .range-output input {
+  min-height: 34px;
+  font-size: 0.8125rem;
+}
+
+.input-panel .range-control {
+  height: 28px;
+}
+
+.input-panel .range-field > small {
+  display: none;
+}
+
+.input-panel .growth-presets {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-self: center;
+  gap: 5px;
+  margin: 0 0 12px;
+}
+
+.input-panel .growth-presets button {
+  min-width: 0;
+  min-height: 34px;
+  padding: 5px 4px;
+  font-size: 0.625rem;
+  white-space: nowrap;
+}
+
+.input-panel .advanced-inputs {
+  margin-top: 4px;
+}
+
+.input-panel .advanced-inputs summary {
+  min-height: 48px;
+  padding: 10px 0 0;
+  font-size: 0.8125rem;
+}
+
+.input-panel .advanced-inputs .input-group {
+  padding-top: 14px;
+}
+
+.results-panel .results-head {
+  align-items: center;
+}
+
+.results-panel .results-head h3 {
+  margin: 6px 0 16px;
+  font-size: 1.25rem;
+}
+
+.wealth-chart-card {
+  margin-top: 20px;
+  padding: 20px 20px 14px;
+  border: 1px solid rgba(241, 238, 251, 0.14);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.wealth-chart-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 22px;
+}
+
+.wealth-chart-head .card-kicker {
+  margin-bottom: 7px;
+}
+
+.wealth-chart-head h4 {
+  margin: 0;
+  color: var(--paper);
+  font-size: 1rem;
+  letter-spacing: -0.025em;
+}
+
+.chart-legend {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px 14px;
+  color: #d2c9df;
+  font-size: 0.6875rem;
+  line-height: 1.4;
+}
+
+.chart-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.buy-dot,
+.cash-dot {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  flex: 0 0 auto;
+  border-radius: 3px;
+  background: #bca8f3;
+}
+
+.cash-dot {
+  background: #58c29a;
+}
+
+.wealth-chart-stage {
+  position: relative;
+  margin-top: 12px;
+}
+
+.wealth-chart-stage canvas {
+  display: block;
+  width: 100%;
+  height: 276px;
+  outline: none;
+  touch-action: pan-y;
+}
+
+.wealth-chart-stage canvas:focus-visible {
+  border-radius: 10px;
+  box-shadow: 0 0 0 2px rgba(188, 168, 243, 0.7);
+}
+
+.chart-tooltip {
+  position: absolute;
+  z-index: 2;
+  top: 14px;
+  display: grid;
+  width: 180px;
+  gap: 7px;
+  padding: 12px;
+  border: 1px solid rgba(241, 238, 251, 0.18);
+  border-radius: 11px;
+  background: rgba(31, 15, 56, 0.94);
+  box-shadow: 0 16px 34px -18px rgba(0, 0, 0, 0.8);
+  color: var(--paper);
+  pointer-events: none;
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+}
+
+.chart-tooltip[hidden] {
+  display: none;
+}
+
+.chart-tooltip > b {
+  font-size: 0.75rem;
+}
+
+.chart-tooltip > span {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 3px 6px;
+  align-items: center;
+  color: #cfc5dc;
+  font-size: 0.625rem;
+}
+
+.chart-tooltip > span strong {
+  grid-column: 2;
+  color: var(--paper);
+  font: 500 0.6875rem/1.2 var(--mono);
+}
+
+.chart-tooltip em {
+  padding-top: 7px;
+  border-top: 1px solid rgba(241, 238, 251, 0.13);
+  color: #d8cef0;
+  font-size: 0.625rem;
+  font-style: normal;
+}
+
+.wealth-chart-card > p {
+  margin: 7px 0 0;
+  color: #a99db8;
+  font-size: 0.6875rem;
+  line-height: 1.6;
+}
+
+.results-panel .result-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0;
+  padding-top: 16px;
+}
+
+.results-panel .decision-card,
+.results-panel .wealth-card,
+.results-panel .risk-card {
+  min-height: 174px;
+  padding: 18px;
+}
+
+.results-panel .wealth-card {
+  border-right: 1px solid rgba(241, 238, 251, 0.14);
+}
+
+.results-panel .risk-card {
+  grid-column: auto;
+  border-top: 0;
+}
+
+.results-panel .card-kicker {
+  margin-bottom: 14px;
+}
+
+.results-panel .wealth-values {
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.results-panel .wealth-values b {
+  font-size: clamp(1.125rem, 1.8vw, 1.5rem);
+}
+
+.results-panel .formula-mini {
+  margin-top: 14px;
+}
+
+.results-panel .snapshot-grid {
+  margin-top: 16px;
+}
+
+@media (max-width: 1100px) {
+  .model-section#model .model-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .model-section#model .results-panel {
+    box-shadow: inset 0 1px rgba(241, 238, 251, 0.1);
+  }
+
+  .input-panel > .input-group,
+  .advanced-inputs .input-group {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .input-panel > .input-group .group-title {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 760px) {
+  .model-section#model .model-layout {
+    overflow: visible;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+  }
+
+  .model-section#model .input-panel,
+  .model-section#model .results-panel {
+    border-radius: 18px;
+  }
+
+  .model-section#model .results-panel {
+    margin-top: 14px;
+    padding: 22px 18px;
+  }
+
+  .input-panel > .input-group,
+  .advanced-inputs .input-group {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .wealth-chart-head {
+    display: grid;
+  }
+
+  .chart-legend {
+    justify-content: flex-start;
+  }
+
+  .wealth-chart-stage canvas {
+    height: 240px;
+  }
+
+  .results-panel .result-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .results-panel .decision-card,
+  .results-panel .wealth-card {
+    border-right: 0;
+    border-bottom: 1px solid rgba(241, 238, 251, 0.14);
+  }
+
+  .results-panel .risk-card {
+    border-top: 0;
+  }
+}
+
+@media (max-width: 460px) {
+  .input-panel > .input-group,
+  .advanced-inputs .input-group {
+    grid-template-columns: 1fr;
+  }
+
+  .input-panel .growth-presets {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .wealth-chart-card {
+    padding-inline: 12px;
+  }
+
+  .wealth-chart-stage canvas {
+    height: 224px;
+  }
+}

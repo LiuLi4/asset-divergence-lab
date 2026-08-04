@@ -2,7 +2,8 @@ import './style.css'
 import '@phosphor-icons/web/regular'
 import '@phosphor-icons/web/bold'
 import { animateResults, initScrollMotion } from './motion'
-import { calculateFinance, scenarioMatrix, type FinanceInputs, type FinanceResult, type ViewMode } from './finance'
+import { calculateFinance, calculateWealthTimeline, scenarioMatrix, type FinanceInputs, type FinanceResult, type ViewMode } from './finance'
+import { initWealthChart } from './wealth-chart'
 
 type Scenario = 'scarce' | 'cashflow' | 'decline'
 type InputKey = keyof FinanceInputs
@@ -62,6 +63,7 @@ let activeCandidate = 0
 let calculationFrame: number | null = null
 let exportFeedbackTimer: number | null = null
 let toastTimer: number | null = null
+let disposeWealthChart: () => void = () => undefined
 
 const sliderBounds: Record<InputKey, { min: number; max: number; step: number }> = {
   homePrice: { min: 50, max: 3000, step: 10 }, downPayment: { min: 0, max: 1500, step: 5 }, providentLoan: { min: 0, max: 300, step: 5 },
@@ -179,11 +181,27 @@ function scenarioMatrixMarkup() {
   return `<article class="matrix-card"><div class="card-kicker">双变量压力测试 · 差额（买房 − 理财）</div><div class="matrix-scroll"><table class="scenario-matrix"><thead><tr><th>理财收益 \ 房价</th>${[-5, 0, 3, 5].map((rate) => `<th>${rate > 0 ? '+' : ''}${rate}%</th>`).join('')}</tr></thead><tbody>${matrix.map((row) => `<tr><th>${row.wealthYield.toFixed(1)}%</th>${row.outcomes.map((value) => `<td class="${value >= 0 ? 'matrix-positive' : 'matrix-negative'}">${value >= 0 ? '+' : ''}${value.toFixed(0)}万</td>`).join('')}</tr>`).join('')}</tbody></table></div><p>绿色表示买房终值更高，红色表示租住/理财路径更高。点击下方情景可快速回填。</p></article>`
 }
 
+function wealthChartMarkup() {
+  const timeline = calculateWealthTimeline(inputs, viewMode)
+  const buyLabel = viewMode === 'rent' ? '买房 · 房产净值 + 租金账户' : '买房 · 房产净值'
+  const investLabel = viewMode === 'self' ? '持有现金 · 理财账户（已计租金）' : '持有现金 · 理财账户'
+  return `<article class="wealth-chart-card" aria-labelledby="wealthChartTitle"><div class="wealth-chart-head"><div><span class="card-kicker">YEAR-BY-YEAR TOTAL ASSETS</span><h4 id="wealthChartTitle">总资产随年份变化</h4></div><div class="chart-legend" aria-label="图例"><span><i class="buy-dot"></i>${buyLabel}</span><span><i class="cash-dot"></i>${investLabel}</span></div></div><div class="wealth-chart-stage"><canvas data-wealth-chart tabindex="0" role="img" aria-describedby="wealthChartNote wealthChartData" aria-label="买房与持有现金总资产逐年变化曲线，可使用左右方向键查看各年份"></canvas><output class="chart-tooltip" data-chart-tooltip hidden aria-live="polite"></output></div><p id="wealthChartNote">口径与终值卡一致：买房路径按净卖房权益计算；持有现金路径包含未购房资金与每月现金流差额的理财终值。</p><div class="sr-only" id="wealthChartData">逐年数据：${timeline.map((point) => `${point.year === 0 ? '现在' : `${point.year}年`}，${buyLabel}${money(point.buyWealth)}，${investLabel}${money(point.investWealth)}`).join('；')}</div></article>`
+}
+
+function mountWealthChart(root = document.querySelector<HTMLElement>('#calculation-results')) {
+  disposeWealthChart()
+  disposeWealthChart = root ? initWealthChart(root, calculateWealthTimeline(inputs, viewMode), {
+    buyLabel: viewMode === 'rent' ? '买房总资产' : '买房净资产',
+    investLabel: '持有现金总资产',
+  }) : () => undefined
+}
+
 function resultsPanelMarkup(result: FinanceResult) {
   const positive = result.difference >= 0
   const risk = riskLevel(result.paymentRatio)
   const stress = riskLevel(result.stressedPaymentRatio)
   return `<div class="results-head"><div><span class="eyebrow">CALCULATION OUTPUT</span><h3>同一笔现金流，${inputs.years} 年后会去哪？</h3></div><div class="scenario-switch" role="group" aria-label="使用场景"><button class="scenario-toggle ${viewMode === 'self' ? 'active' : ''}" data-view="self" aria-pressed="${viewMode === 'self'}">自住对比</button><button class="scenario-toggle ${viewMode === 'rent' ? 'active' : ''}" data-view="rent" aria-pressed="${viewMode === 'rent'}">出租对比</button></div></div>
+  ${wealthChartMarkup()}
   <div class="result-grid"><article class="decision-card ${positive ? 'positive' : 'negative'}"><div class="card-kicker">${inputs.years} 年后 · 当前假设</div><div class="decision-row"><strong>${positive ? '买房路径占优' : '租住理财占优'}</strong><span class="decision-badge">差额 ${positive ? '+' : '−'}${money(Math.abs(result.difference))}</span></div><p>${positive ? '房产净值' : '替代投资'}在这组参数下更高；结论会随涨幅、租金和持有期变化。</p><div class="metric-foot"><span>房价年涨幅临界值</span><b>${percent(result.breakEven)}</b></div></article>
   <article class="wealth-card"><div class="card-kicker">终值对比</div><div class="wealth-values"><div><span>买房路径</span><b>${money(result.buyWealth)}</b></div><i class="ph ph-arrows-left-right"></i><div><span>${viewMode === 'self' ? '租住 + 理财' : '只做理财'}</span><b>${money(result.investWealth)}</b></div></div><div class="formula-mini">净卖房权益已扣 ${inputs.saleCostRate}% 卖出成本</div></article>
   <article class="risk-card"><div class="card-kicker">家庭现金流压力</div><div class="risk-main"><strong>${percent(result.paymentRatio)}</strong><span class="risk-pill ${risk.tone}">${risk.label}</span></div><div class="risk-meter"><i style="width:${clamp(result.paymentRatio, 0, 100)}%"></i><em></em></div><p>月供与持有成本约 <b>${Math.round(result.mortgage + inputs.homePrice * inputs.annualHoldingRate / 1200 * 10000).toLocaleString('zh-CN')}</b> 元；收入下降 ${inputs.incomeDrop}% 后占比 <b class="${stress.tone}">${percent(result.stressedPaymentRatio)}</b>。</p></article></div>
@@ -229,7 +247,7 @@ function render() {
 function refreshCalculator(syncInputs = true) {
   const result = calculateFinance(inputs, viewMode)
   const root = document.querySelector<HTMLElement>('#calculation-results')
-  if (root) { root.innerHTML = resultsPanelMarkup(result); animateResults(root) }
+  if (root) { root.innerHTML = resultsPanelMarkup(result); mountWealthChart(root); animateResults(root) }
   if (syncInputs) syncFieldControls()
   const commercialHelp = document.querySelector<HTMLElement>('[data-field="commercialRate"] [data-help]')
   if (commercialHelp) commercialHelp.textContent = `当前自动计算商贷 ${result.commercialLoan.toFixed(0)} 万`
@@ -304,7 +322,7 @@ function bindEvents() {
     if (target.closest('#resetInputs')) { inputs = { ...defaults }; activeScenario = null; viewMode = 'self'; refreshCalculator(); showToast('测算参数已恢复默认值', 'ph-arrow-counter-clockwise'); return }
     if (target.closest('#startCalc')) { document.querySelector('#model')?.scrollIntoView({ behavior: motionBehavior() }); return }
     if (target.closest('#saveReport')) {
-      const report = { generatedAt: new Date().toISOString(), modelVersion: '0.3', viewMode, inputs, result: calculateFinance(inputs, viewMode), candidates: candidates.map((item) => ({ ...item, score: scoreCandidate(item), classification: scoreLabel(scoreCandidate(item)).label })) }
+      const report = { generatedAt: new Date().toISOString(), modelVersion: '0.3', viewMode, inputs, result: calculateFinance(inputs, viewMode), wealthTimeline: calculateWealthTimeline(inputs, viewMode), candidates: candidates.map((item) => ({ ...item, score: scoreCandidate(item), classification: scoreLabel(scoreCandidate(item)).label })) }
       const url = URL.createObjectURL(new Blob([JSON.stringify(report, null, 2)], { type: 'application/json' }))
       const link = document.createElement('a'); link.href = url; link.download = '北京购房决策报告.json'; link.click(); URL.revokeObjectURL(url); showExportSuccess(); showToast('报告已导出到下载目录'); return
     }
@@ -318,9 +336,10 @@ function bindEvents() {
 
 loadLocalState()
 render()
+mountWealthChart()
 bindEvents()
 const disposeMotion = initScrollMotion()
 let disposeScene: () => void = () => undefined
 const sceneHost = document.querySelector<HTMLElement>('#heroMap3d')
 if (sceneHost) void import('./hero-map-3d').then(({ initHeroMap3d }) => initHeroMap3d(sceneHost)).then((cleanup) => { disposeScene = cleanup }).catch(() => sceneHost.classList.add('map-3d-fallback'))
-window.addEventListener('beforeunload', () => { disposeScene(); disposeMotion() })
+window.addEventListener('beforeunload', () => { disposeScene(); disposeMotion(); disposeWealthChart() })
