@@ -4893,3 +4893,182 @@ footer {
     height: 224px;
   }
 }
+
+/* Continuous page rhythm — full-screen hero and non-overlapping card hierarchy */
+body,
+main {
+  background: #f5eef8;
+}
+
+.hero.reference-hero {
+  width: 100%;
+  height: 100svh;
+  min-height: 100svh;
+  background: transparent;
+}
+
+.hero.reference-hero::before {
+  display: none;
+}
+
+.hero.reference-hero .hero-content {
+  height: 100svh;
+  min-height: 100svh;
+  padding-top: 88px;
+  padding-bottom: 36px;
+}
+
+.hero.reference-hero .capability-dock {
+  bottom: 42px;
+}
+
+.hero.reference-hero .scroll-cue {
+  bottom: 42px;
+}
+
+.model-section#model {
+  margin-top: 0;
+  padding-top: clamp(72px, 8vw, 108px);
+}
+
+.model-section#model::before {
+  display: none;
+}
+
+.calculator-workspace {
+  overflow: hidden;
+  border: 1px solid rgba(43, 22, 73, 0.12);
+  border-radius: 26px;
+  background: rgba(250, 248, 255, 0.94);
+  box-shadow: 0 28px 76px -42px rgba(43, 22, 73, 0.34);
+}
+
+.calculator-workspace .calculator-heading {
+  min-height: 128px;
+  padding: 28px 32px 24px;
+  border-bottom: 1px solid rgba(43, 22, 73, 0.11);
+}
+
+.model-section#model .model-layout {
+  margin-top: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.model-section#model .input-panel,
+.model-section#model .results-panel {
+  border-radius: 0;
+}
+
+.taxonomy-section,
+.selection-section,
+.method-section {
+  background: transparent;
+}
+
+.taxonomy-section,
+.method-section {
+  border-top: 0;
+}
+
+@media (max-width: 820px) {
+  .hero.reference-hero,
+  .hero.reference-hero .hero-content {
+    height: 100svh;
+    min-height: 100svh;
+  }
+
+  .hero.reference-hero .hero-content {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    padding-top: 86px;
+    padding-bottom: 24px;
+  }
+
+  .hero.reference-hero .hero-map-visual {
+    min-width: 0;
+  }
+
+  .hero.reference-hero .capability-dock {
+    position: absolute;
+    right: 0;
+    bottom: 24px;
+    left: 0;
+    width: auto;
+    margin: 0;
+    padding: 0;
+  }
+
+  .model-section#model {
+    padding-top: 64px;
+  }
+}
+
+@media (max-width: 600px) {
+  .hero.reference-hero .hero-content {
+    padding-top: 80px;
+    padding-bottom: 116px;
+  }
+
+  .hero.reference-hero .hero-map-visual {
+    width: 122vw;
+    margin: -38px -11vw -28px;
+  }
+
+  .hero.reference-hero .capability-dock {
+    overflow: hidden;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .hero.reference-hero .capability-card,
+  .hero.reference-hero .capability-card:not(:first-child) {
+    width: auto;
+    min-width: 0;
+    grid-template-columns: 20px minmax(0, 1fr);
+    gap: 7px;
+    padding: 0 8px;
+  }
+
+  .hero.reference-hero .capability-card > i {
+    font-size: 20px;
+  }
+
+  .hero.reference-hero .capability-card b {
+    font-size: 0.6875rem;
+    line-height: 1.35;
+  }
+
+  .hero.reference-hero .capability-card small {
+    display: none;
+  }
+
+  .calculator-workspace {
+    overflow: visible;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+  }
+
+  .calculator-workspace .calculator-heading,
+  .model-section#model .input-panel,
+  .model-section#model .results-panel {
+    border: 1px solid rgba(43, 22, 73, 0.12);
+    border-radius: 18px;
+    background: rgba(250, 248, 255, 0.94);
+    box-shadow: 0 18px 44px -30px rgba(43, 22, 73, 0.34);
+  }
+
+  .calculator-workspace .calculator-heading {
+    min-height: 120px;
+    margin-bottom: 14px;
+    padding: 24px 20px;
+  }
+
+  .model-section#model .results-panel {
+    background: var(--ink);
+  }
+}

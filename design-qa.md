@@ -1,49 +1,47 @@
-# Design QA — Calculator density and wealth timeline
+# Design QA — Full-screen hero, continuous background, and card hierarchy
 
-- Source visual truth: `/var/folders/0p/54xxdchs59x4m72kldrw_x1c0000gn/T/codex-clipboard-83ffad74-e88b-410c-b7f2-03873694c7ca.png`
-- Implementation screenshot: `/tmp/asset-divergence-calculator-revised.png`
-- Prototype: `http://127.0.0.1:5173/#model`
-- Desktop viewport: `1440 × 1100` CSS px, implementation `1440 × 1100` px
-- Mobile viewport: `390 × 844` CSS px
-- Source dimensions: `1560 × 684` px; source is a focused chart reference rather than a full-page frame
-- Density normalization: none; the reference chart and implementation calculator were compared together at their native pixel sizes, with the chart region used as the fidelity surface
-- State: self-use comparison, default 10-year holding period, advanced inputs collapsed
+- Source visual truth: `/tmp/asset-divergence-layout-before.png`
+- Desktop implementation: `/tmp/asset-divergence-layout-desktop-1440-final.png`
+- Compact desktop implementation: `/tmp/asset-divergence-layout-desktop-final.png`
+- Mobile implementation: `/tmp/asset-divergence-layout-mobile-final.png`
+- Prototype: `http://127.0.0.1:5173/`
+- Desktop viewport: `1440 × 900` CSS px; screenshot `1440 × 900` px
+- Compact desktop viewport: `1366 × 768` CSS px; screenshot `1366 × 768` px
+- Mobile viewport: `390 × 844` CSS px; screenshot `390 × 844` px
+- Density normalization: none; the before and after desktop frames were compared together at native size
+- State: homepage default state at the top of the document
 
 ## Full-view comparison evidence
 
-- Layout and hierarchy: passed. The compact input rail and expanded result area now read as one calculator workspace. The chart is the largest result block and remains above the terminal result cards.
-- Fonts and typography: passed. Existing Manrope/Noto Sans SC and DM Mono tokens are retained; chart title, legend, axes, and result figures follow the product's established hierarchy without truncation.
-- Spacing and rhythm: passed. Desktop inputs fit in a dense two-column rail, result cards use the wider track, and the single shared outer surface removes the previous competing-card feel.
-- Colors and tokens: passed. The reference's two clearly distinguished series are mapped into the site's aubergine/lilac and green palette with sufficient contrast on the dark output panel.
-- Image and asset fidelity: passed. No source imagery was required for this calculator change; the visualization is data-driven canvas output rather than a replacement illustration or fabricated asset.
-- Copy and content: passed. Labels distinguish `买房 · 房产净值` from `持有现金 · 理财账户（已计租金）`, and the note states the accounting boundary.
+- Layout and hierarchy: passed. The hero now occupies exactly one viewport (`100svh`), and the calculator starts at the first pixel below the fold rather than covering the hero.
+- Background continuity: passed. Hero, calculator, asset classification, selection framework, and methodology sections now share the same page background without alternating section slabs.
+- Card hierarchy: passed. On desktop, the calculator heading, inputs, and results sit inside one shared workspace surface. On mobile, the necessary stacked surfaces retain positive spacing and never overlap.
+- Spacing and rhythm: passed. Section flow uses positive padding instead of negative margins; desktop and mobile both report zero horizontal overflow.
+- Visual language: passed. Existing typography, color tokens, map artwork, and controls are retained while the structural boundaries are simplified.
 
-## Focused region comparison evidence
+## Focused comparison evidence
 
-- The reference chart and the implementation chart were opened together in one comparison input.
-- Both show two yearly asset paths, year labels, monetary y-axis labels, point markers, a legend, and a shared zero-based scale for positive-only data.
-- The implementation intentionally uses the calculator's dark result surface and the selected 10-year holding period instead of copying the reference's white 30-year example.
+- Before: the calculator began around `559px` in a `900px` viewport, visibly covering the lower portion of the hero.
+- After at `1440 × 900`: hero bottom and calculator top both measure `900px`; no next-section content appears inside the first viewport.
+- After at `1366 × 768`: hero bottom and calculator top both measure `768px`; the same one-screen boundary is preserved.
+- After at `390 × 844`: hero bottom and calculator top both measure `844px`; the capability dock remains inside the viewport in three equal, non-overlapping columns.
 
 ## Interaction and responsive checks
 
-- Changing the holding period from 10 to 15 years updated the result heading and produced 16 points including the current year.
-- Canvas keyboard interaction passed: `End` and `ArrowLeft` exposed the selected year's two values and lead amount through the tooltip and accessible label.
-- Reset restored the default 10-year example.
-- Mobile at `390 × 844` passed with zero horizontal overflow; the chart remains readable at 272 CSS px wide and stacks the result cards below it.
-- Browser console checked: no errors or warnings from the calculator or chart.
+- The “开始测算” action still scrolls from the hero to the calculator; after activation the calculator enters the viewport as expected.
+- Desktop `1440 × 900`, compact desktop `1366 × 768`, and mobile `390 × 844` all passed with zero horizontal overflow.
+- Programmatic bounding-box checks found zero overlaps among sibling cards in the tested desktop and mobile views.
+- Browser console checked: no errors or warnings.
 
 ## Comparison history
 
-1. Initial comparison found a P2 chart-readability issue: automatically padded bounds produced irregular labels such as `87.4万` and a negative bottom tick for an all-positive series. It also found P2 mobile horizontal overflow from the visually hidden data table and oversized hero content.
-2. Fixes: switched to rounded 1/2/5 axis intervals with a zero floor for positive data, added yearly point markers, replaced the hidden table with compact accessible text, and clipped the mobile hero at its viewport boundary.
-3. Post-fix evidence: `/tmp/asset-divergence-calculator-revised.png` shows rounded `0 / 100 / 200 / 300 / 400万` ticks and visible yearly markers; browser measurements report `scrollWidth === clientWidth` at 390 px.
+1. Initial comparison found a P1 page-flow issue: the calculator surface overlapped the first-screen hero instead of starting below it.
+2. It also found P2 continuity and hierarchy issues: section-specific backgrounds created visible seams, while nested calculator cards competed as separate surfaces.
+3. Mobile review found a P2 capability-dock overflow caused by wide card content.
+4. Fixes: locked the hero to `100svh`, removed the negative section overlap, unified page backgrounds, grouped the calculator into one desktop workspace, and constrained the mobile capability dock to three equal columns.
 
 ## Findings
 
-- No actionable P0, P1, or P2 differences remain for the requested calculator density and yearly total-asset comparison.
-
-## Follow-up polish
-
-- P3: future model versions could add optional provident-fund contribution inputs before labeling a separate provident-fund balance in the buy path.
+- No actionable P0, P1, or P2 differences remain for the requested full-screen homepage, continuous background, and non-overlapping card hierarchy.
 
 final result: passed
