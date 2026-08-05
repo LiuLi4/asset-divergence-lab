@@ -1,3 +1,5 @@
+import { calculateEmploymentAccess, calculatePriceOpportunityScore, calculatePurchaseValueScore, qualityDimensionWeights, type QualityDimensionKey } from './property-score'
+
 export type DistrictKey = 'haidian' | 'chaoyang' | 'shijingshan' | 'xicheng' | 'fengtai' | 'tongzhou' | 'daxing'
 
 export type PurchaseValueTier = 'strong' | 'watch' | 'cautious'
@@ -12,6 +14,7 @@ export interface CommunityValueSample {
   longitude?: number
   latitude?: number
   dataStatus?: CommunityDataStatus
+  qualityDimensions?: Partial<Record<QualityDimensionKey, number>>
   qualityScore: number
   adjustedDiscount: number
   referenceUnitPrice?: number
@@ -71,15 +74,35 @@ const nonEmptyString = (value: unknown) => typeof value === 'string' && value.tr
 const stableHash = (value: string) => [...value].reduce((hash, character) => (hash * 31 + character.charCodeAt(0)) >>> 0, 2166136261)
 
 export function calculatePurchaseValue(sample: CommunityValueSample) {
-  const discountScore = clamp(50 + sample.adjustedDiscount * 3.5, 0, 100)
-  const rawScore = sample.qualityScore * 0.45
-    + discountScore * 0.3
-    + sample.liquidityScore * 0.15
-    + sample.confidenceScore * 0.1
-    - sample.riskPenalty
+  return calculatePurchaseValueScore({
+    qualityScore: sample.qualityScore,
+    priceOpportunityScore: calculatePriceOpportunityScore(sample.adjustedDiscount),
+    liquidityScore: sample.liquidityScore,
+    riskPenalty: sample.riskPenalty,
+  })
+}
 
-  // 低于优质小区门槛时，价格折让不能把明显短板补成高价值候选。
-  return Math.round(clamp(sample.qualityScore < 75 ? Math.min(rawScore, 64) : rawScore, 0, 100))
+export function getCommunityScoreBreakdown(sample: CommunityValueSample) {
+  const employmentAccess = sample.latitude !== undefined && sample.longitude !== undefined
+    ? calculateEmploymentAccess(sample.latitude, sample.longitude)
+    : undefined
+  const dimensions = {
+    ...(employmentAccess ? { location: employmentAccess.score } : {}),
+    ...sample.qualityDimensions,
+  }
+  const availableWeight = Object.entries(dimensions).reduce((total, [key, value]) => (
+    typeof value === 'number' ? total + qualityDimensionWeights[key as QualityDimensionKey] : total
+  ), 0)
+  const priceOpportunityScore = calculatePriceOpportunityScore(sample.adjustedDiscount)
+  return {
+    qualityScore: sample.qualityScore,
+    priceOpportunityScore,
+    liquidityScore: sample.liquidityScore,
+    purchaseValueScore: calculatePurchaseValue(sample),
+    evidenceCoverage: availableWeight,
+    dimensions,
+    employmentAccess,
+  }
 }
 
 export function getPurchaseValueTier(score: number): PurchaseValueTier {
@@ -132,6 +155,15 @@ export function parseCommunityValueDataset(input: unknown): CommunityValueDatase
     scoreFields.forEach((key) => {
       if (!numberInRange(sample[key], 0, 100)) throw new Error(`第 ${index + 1} 条记录 ${key} 必须在 0–100`)
     })
+    const qualityDimensions = sample.qualityDimensions as Record<string, unknown> | undefined
+    if (qualityDimensions) {
+      const supportedDimensions: QualityDimensionKey[] = ['location', 'amenities', 'transit', 'environment', 'layout']
+      Object.entries(qualityDimensions).forEach(([key, score]) => {
+        if (!supportedDimensions.includes(key as QualityDimensionKey) || !numberInRange(score, 0, 100)) {
+          throw new Error(`第 ${index + 1} 条记录 qualityDimensions.${key} 必须是受支持的 0–100 分指标`)
+        }
+      })
+    }
     if (!numberInRange(sample.adjustedDiscount, -50, 50)) throw new Error(`第 ${index + 1} 条记录 adjustedDiscount 必须在 -50–50`)
     if (sample.dataStatus !== undefined && sample.dataStatus !== 'scored' && sample.dataStatus !== 'insufficient') throw new Error(`第 ${index + 1} 条记录 dataStatus 格式错误`)
     if (sample.referenceUnitPrice !== undefined && !numberInRange(sample.referenceUnitPrice, 0, 1_000_000)) throw new Error(`第 ${index + 1} 条记录 referenceUnitPrice 格式错误`)
@@ -156,6 +188,7 @@ export function parseCommunityValueDataset(input: unknown): CommunityValueDatase
       longitude: typeof sample.longitude === 'number' ? sample.longitude : undefined,
       latitude: typeof sample.latitude === 'number' ? sample.latitude : undefined,
       dataStatus: sample.dataStatus === 'insufficient' ? 'insufficient' as const : 'scored' as const,
+      qualityDimensions: qualityDimensions as Partial<Record<QualityDimensionKey, number>> | undefined,
       qualityScore: sample.qualityScore as number,
       adjustedDiscount: sample.adjustedDiscount as number,
       referenceUnitPrice: typeof sample.referenceUnitPrice === 'number' ? sample.referenceUnitPrice : undefined,

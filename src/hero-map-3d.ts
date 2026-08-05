@@ -6,6 +6,7 @@ import {
   communityValueSamples,
   formatDataDate,
   getCommunitySamples,
+  getCommunityScoreBreakdown,
   getPurchaseValueTier,
   parseCommunityValueDataset,
   purchaseValueBands,
@@ -449,7 +450,8 @@ export async function initHeroMap3d(host: HTMLElement) {
 
   const selectCommunity = (sample: CommunityValueSample) => {
     activeCommunityId = sample.id
-    const score = calculatePurchaseValue(sample)
+    const scoreBreakdown = getCommunityScoreBreakdown(sample)
+    const score = scoreBreakdown.purchaseValueScore
     const tier = getCommunityTier(sample)
     communityLayer?.querySelectorAll<HTMLButtonElement>('[data-community-id]').forEach((button) => {
       const selected = button.dataset.communityId === sample.id
@@ -476,7 +478,15 @@ export async function initHeroMap3d(host: HTMLElement) {
       const nearby = location.nearby.length
         ? location.nearby.map(({ community, distanceKm }, index) => `<li><i>${index + 1}</i><span><b>${escapeHtml(community.name)}</b><small>${escapeHtml(community.zone)} · ${distanceKm < 1 ? `${Math.round(distanceKm * 1_000)}m` : `${distanceKm.toFixed(1)}km`}</small></span></li>`).join('')
         : '<li class="empty">暂无可定位的周边小区参照</li>'
-      communityLocation.innerHTML = `<div class="community-location-metrics"><span><small>商圈 / 坐标</small><b>${escapeHtml(sample.zone)} · ${location.coordinateLabel}</b></span><span><small>500m / 1km 内小区</small><b>${location.within500m} / ${location.within1km}</b></span><a href="${location.externalUrl}" target="_blank" rel="noreferrer"><i class="ph ph-arrow-square-out" aria-hidden="true"></i> 打开周边地图</a></div><ol class="nearby-community-list">${nearby}</ol><p>位置基于公开坐标；地图展示道路与公开配套要素，教育资格、医疗等级及实际步行距离需另行核验。</p>`
+      const dimensionLabels = { location: '就业地段', amenities: '医院配套', transit: '交通通勤', environment: '环境物业', layout: '具体户型' } as const
+      const dimensionScores = (Object.entries(dimensionLabels) as [keyof typeof dimensionLabels, string][]).map(([key, label]) => {
+        const dimensionScore = scoreBreakdown.dimensions[key]
+        return `<span class="${dimensionScore === undefined ? 'missing' : ''}"><small>${label}</small><b>${dimensionScore === undefined ? '待补证据' : `${Math.round(dimensionScore)}分`}</b></span>`
+      }).join('')
+      const employmentEvidence = scoreBreakdown.employmentAccess
+        ? `最近核心工作区：${scoreBreakdown.employmentAccess.name}，直线约 ${scoreBreakdown.employmentAccess.distanceKm.toFixed(1)}km；实际通勤仍需高峰实测。`
+        : '缺少坐标，暂不能计算核心工作区距离。'
+      communityLocation.innerHTML = `<div class="community-score-model"><div><b>五维品质证据</b><small>当前覆盖 ${scoreBreakdown.evidenceCoverage}% · 缺失项不默认给分</small></div><div class="community-dimension-grid">${dimensionScores}</div><p>${employmentEvidence} 周边新房、医院等级、户型朝向和人车分流需补充结构化证据。</p></div><div class="community-location-metrics"><span><small>商圈 / 坐标</small><b>${escapeHtml(sample.zone)} · ${location.coordinateLabel}</b></span><span><small>500m / 1km 内小区</small><b>${location.within500m} / ${location.within1km}</b></span><a href="${location.externalUrl}" target="_blank" rel="noreferrer"><i class="ph ph-arrow-square-out" aria-hidden="true"></i> 打开周边地图</a></div><ol class="nearby-community-list">${nearby}</ol><p>位置基于公开坐标；地图展示道路与公开配套要素，教育资格、医疗等级及实际步行距离需另行核验。</p>`
       communityLocation.hidden = false
     } else {
       closeCommunityLocation()
@@ -492,7 +502,7 @@ export async function initHeroMap3d(host: HTMLElement) {
       const evidenceValue = tier === 'insufficient'
         ? `暂不计算 · ${sample.transactions180d} / ${sample.comparableSamples}`
         : `${sample.adjustedDiscount >= 0 ? '+' : ''}${sample.adjustedDiscount.toFixed(1)}% · ${sample.transactions180d} / ${sample.comparableSamples}`
-      statusStats.innerHTML = `<span><small>优质小区分</small><b>${sample.qualityScore} / 100</b></span>${priceEvidence}<span><small>折价 · 180天成交 / 可比</small><b>${evidenceValue}</b></span>`
+      statusStats.innerHTML = `<span><small>社区品质 × 65%</small><b>${scoreBreakdown.qualityScore} / 100</b></span><span><small>价格机会 × 25%</small><b>${scoreBreakdown.priceOpportunityScore} / 100</b></span><span><small>流动性 × 10%</small><b>${scoreBreakdown.liquidityScore} / 100</b></span>${priceEvidence}<span><small>折价 · 180天成交 / 可比</small><b>${evidenceValue}</b></span><span><small>五维证据覆盖</small><b>${scoreBreakdown.evidenceCoverage}% · 缺失项待补</b></span>`
     }
     renderCommunityMarkers(sample.district)
   }

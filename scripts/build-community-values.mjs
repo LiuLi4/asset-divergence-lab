@@ -40,6 +40,28 @@ const distanceKm = (left, right) => {
   return Math.hypot(latitudeKm, longitudeKm)
 }
 
+const employmentHubs = [
+  { name: '金融街', latitude: 39.915, longitude: 116.363 },
+  { name: '国贸 CBD', latitude: 39.908, longitude: 116.458 },
+  { name: '中关村', latitude: 39.983, longitude: 116.315 },
+  { name: '上地 / 西二旗', latitude: 40.052, longitude: 116.306 },
+  { name: '望京', latitude: 40.001, longitude: 116.475 },
+  { name: '亦庄', latitude: 39.795, longitude: 116.506 },
+  { name: '运河商务区', latitude: 39.91, longitude: 116.68 },
+]
+
+const employmentAccessScore = (community) => {
+  if (!Number.isFinite(community.longitude) || !Number.isFinite(community.latitude)) return undefined
+  const nearestDistance = Math.min(...employmentHubs.map((hub) => distanceKm(community, hub)))
+  return nearestDistance <= 2 ? 100
+    : nearestDistance <= 5 ? 92
+      : nearestDistance <= 8 ? 84
+        : nearestDistance <= 12 ? 72
+          : nearestDistance <= 18 ? 60
+            : nearestDistance <= 25 ? 48
+              : 35
+}
+
 function parseCsvLine(line) {
   const result = []
   let value = ''
@@ -189,9 +211,27 @@ const outputCommunities = communities.map((community) => {
   const densityScore = community.floorAreaRatio === undefined ? 60 : community.floorAreaRatio <= 2 ? 92 : community.floorAreaRatio <= 3 ? 82 : community.floorAreaRatio <= 4 ? 68 : 52
   const transitScore = /地铁|轨道/.test(community.tags) ? 92 : 62
   const managementScore = community.propertyCompany && !/暂无|自管/.test(community.propertyCompany) ? 82 : 58
+  const locationScore = employmentAccessScore(community)
+  const environmentScore = Math.round(ageScore * 0.35 + greenScore * 0.25 + densityScore * 0.25 + managementScore * 0.15)
+  const amenitySignals = {
+    hospital: /三甲|医院|医疗/.test(community.tags),
+    commercial: /商场|商业|购物|超市/.test(community.tags),
+    park: /公园|绿地|河景/.test(community.tags),
+  }
+  const amenitiesScore = Object.values(amenitySignals).some(Boolean)
+    ? 40 + (amenitySignals.hospital ? 35 : 0) + (amenitySignals.commercial ? 15 : 0) + (amenitySignals.park ? 10 : 0)
+    : undefined
   const liquidityScore = clamp(40 + community.transactions180d * 5, 0, 100)
   const confidenceScore = clamp(20 + community.transactions180d * 5 + Math.min(comparablePrices.length, 12) * 5, 0, 100)
-  const qualityScore = Math.round(ageScore * 0.3 + greenScore * 0.2 + densityScore * 0.2 + transitScore * 0.15 + managementScore * 0.15)
+  const qualityDimensions = {
+    ...(locationScore === undefined ? {} : { location: locationScore }),
+    ...(amenitiesScore === undefined ? {} : { amenities: amenitiesScore }),
+    transit: transitScore,
+    environment: environmentScore,
+  }
+  const qualityWeights = { location: 30, amenities: 20, transit: 15, environment: 20, layout: 15 }
+  const availableQualityWeight = Object.keys(qualityDimensions).reduce((total, key) => total + qualityWeights[key], 0)
+  const qualityScore = Math.round(Object.entries(qualityDimensions).reduce((total, [key, score]) => total + score * qualityWeights[key], 0) / availableQualityWeight)
   const riskPenalty = Math.round((age && age > 40 ? 4 : 0) + (community.floorAreaRatio && community.floorAreaRatio > 4 ? 3 : 0) + (community.transactions180d < 3 ? 4 : 0) + (comparablePrices.length < 3 ? 12 : comparablePrices.length < 5 ? 6 : 0))
   const insufficientReason = community.transactions180d === 0 ? '近180天无可核验成交' : '同质可比样本不足'
   const watch = dataStatus === 'insufficient'
@@ -206,6 +246,7 @@ const outputCommunities = communities.map((community) => {
     latitude: community.latitude,
     dataStatus,
     qualityScore,
+    qualityDimensions,
     adjustedDiscount: Number(adjustedDiscount.toFixed(2)),
     referenceUnitPrice: community.referencePrice ? Math.round(community.referencePrice) : undefined,
     latestUnitPrice: community.latestPrice ? Math.round(community.latestPrice) : undefined,

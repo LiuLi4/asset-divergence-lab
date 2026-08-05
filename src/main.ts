@@ -4,14 +4,13 @@ import '@phosphor-icons/web/bold'
 import { animateResults, initScrollMotion } from './motion'
 import { calculateFinance, calculateWealthTimeline, scenarioMatrix, type FinanceInputs, type FinanceResult, type ViewMode } from './finance'
 import { initWealthChart } from './wealth-chart'
+import { calculatePropertyScore, type PropertyScoreInputs, type PropertyScoreKey } from './property-score'
 
 type Scenario = 'scarce' | 'cashflow' | 'decline'
 type InputKey = keyof FinanceInputs
-type ScoreKey = 'location' | 'transit' | 'amenities' | 'layout' | 'community' | 'liquidity'
-
 interface Candidate {
   name: string
-  scores: Record<ScoreKey, number>
+  scores: PropertyScoreInputs
 }
 
 const scenarios: Record<Scenario, { label: string; eyebrow: string; description: string; appreciation: number; rentRatio: number; tone: string }> = {
@@ -20,13 +19,14 @@ const scenarios: Record<Scenario, { label: string; eyebrow: string; description:
   decline: { label: '高折旧风险型', eyebrow: '谨慎进入', description: '需求偏弱 · 同质供给 · 远通勤', appreciation: -3, rentRatio: 1.4, tone: 'rose' },
 }
 
-const criteria: { key: ScoreKey; label: string; weight: number; icon: string; help: string }[] = [
-  { key: 'location', label: '就业与地段', weight: 25, icon: 'ph-buildings', help: '核心就业区可达性、稳定人口与新增供给稀缺度' },
-  { key: 'transit', label: '交通通勤', weight: 15, icon: 'ph-train-regional', help: '轨道交通、门到门通勤时间与替代线路' },
-  { key: 'amenities', label: '医院与配套', weight: 15, icon: 'ph-hospital', help: '三甲医院、商业、公园与公共服务成熟度' },
-  { key: 'layout', label: '户型采光', weight: 15, icon: 'ph-blueprint', help: '朝向、通风、动线、得房率与改造难度' },
-  { key: 'community', label: '小区与物业', weight: 15, icon: 'ph-tree', help: '物业维护、停车、人车分流、楼龄与公共空间' },
-  { key: 'liquidity', label: '流动性', weight: 15, icon: 'ph-arrows-left-right', help: '同户型挂牌量、成交速度、总价门槛与接盘人群' },
+const criteria: { key: PropertyScoreKey; label: string; weightLabel: string; icon: string; help: string }[] = [
+  { key: 'location', label: '就业与地段', weightLabel: '品质权重 30%', icon: 'ph-buildings', help: '核心就业区通勤、写字楼岗位密度与新增供给压力' },
+  { key: 'amenities', label: '医院与配套', weightLabel: '品质权重 20%', icon: 'ph-hospital', help: '三甲医院的实际可达时间，以及商业、公园与公共服务成熟度' },
+  { key: 'transit', label: '交通通勤', weightLabel: '品质权重 15%', icon: 'ph-train-regional', help: '地铁步行距离、门到门通勤、替代线路与小区人车分流' },
+  { key: 'environment', label: '环境与物业', weightLabel: '品质权重 20%', icon: 'ph-tree', help: '物业维护、绿化、楼间距、噪声与停车秩序' },
+  { key: 'layout', label: '户型采光', weightLabel: '品质权重 15%', icon: 'ph-blueprint', help: '南北通透或全南、采光、动线、得房率与改造难度' },
+  { key: 'price', label: '价格机会', weightLabel: '购买价值 25%', icon: 'ph-tag', help: '与同地段、相近楼龄、面积及户型成交样本比较后的折让' },
+  { key: 'liquidity', label: '流动性', weightLabel: '购买价值 10%', icon: 'ph-arrows-left-right', help: '近180天成交、同户型样本、总价门槛与潜在接盘人群' },
 ]
 
 const defaults: FinanceInputs = {
@@ -50,9 +50,9 @@ const defaults: FinanceInputs = {
 }
 
 const defaultCandidates: Candidate[] = [
-  { name: '候选 A · 核心区老房', scores: { location: 5, transit: 5, amenities: 5, layout: 3, community: 2, liquidity: 5 } },
-  { name: '候选 B · 近郊次新', scores: { location: 3, transit: 4, amenities: 3, layout: 5, community: 4, liquidity: 3 } },
-  { name: '候选 C · 远郊大户型', scores: { location: 2, transit: 2, amenities: 2, layout: 5, community: 4, liquidity: 2 } },
+  { name: '候选 A · 核心区老房', scores: { location: 5, amenities: 5, transit: 5, environment: 2, layout: 3, price: 4, liquidity: 5 } },
+  { name: '候选 B · 近郊次新', scores: { location: 3, amenities: 3, transit: 4, environment: 4, layout: 5, price: 3, liquidity: 3 } },
+  { name: '候选 C · 远郊大户型', scores: { location: 2, amenities: 2, transit: 2, environment: 4, layout: 5, price: 3, liquidity: 2 } },
 ]
 
 let inputs: FinanceInputs = { ...defaults }
@@ -124,7 +124,17 @@ function loadLocalState() {
   try {
     const saved = JSON.parse(localStorage.getItem('asset-divergence-state-v1') ?? 'null')
     if (saved?.inputs) inputs = { ...defaults, ...saved.inputs }
-    if (saved?.candidates?.length === 3) candidates = saved.candidates
+    if (saved?.candidates?.length === 3) {
+      candidates = saved.candidates.map((candidate: { name?: string; scores?: Record<string, number> }, index: number) => ({
+        name: candidate.name || defaultCandidates[index].name,
+        scores: {
+          ...defaultCandidates[index].scores,
+          ...candidate.scores,
+          environment: candidate.scores?.environment ?? candidate.scores?.community ?? defaultCandidates[index].scores.environment,
+          price: candidate.scores?.price ?? defaultCandidates[index].scores.price,
+        },
+      }))
+    }
     if (saved?.viewMode === 'rent' || saved?.viewMode === 'self') viewMode = saved.viewMode
   } catch { /* corrupted local state falls back to defaults */ }
 }
@@ -211,7 +221,7 @@ function resultsPanelMarkup(result: FinanceResult) {
 }
 
 function scoreCandidate(candidate: Candidate) {
-  return criteria.reduce((total, item) => total + candidate.scores[item.key] / 5 * item.weight, 0)
+  return calculatePropertyScore(candidate.scores)
 }
 
 function scoreLabel(score: number) {
@@ -223,11 +233,11 @@ function scoreLabel(score: number) {
 function selectionMarkup() {
   const candidate = candidates[activeCandidate]
   const score = scoreCandidate(candidate)
-  const category = scoreLabel(score)
+  const category = scoreLabel(score.purchaseValueScore)
   return `<div class="section-intro"><div><div class="overline">03 / PROPERTY SCORECARD</div><h2>把“喜欢”拆成可核验的分数</h2></div><p>评分只是尽调清单，不是自动估值。每一分都应由通勤记录、挂牌成交与实地看房证据支持。</p></div>
-  <div class="scorecard-layout"><div class="candidate-panel"><div class="candidate-tabs" role="tablist">${candidates.map((item, index) => `<button role="tab" data-candidate="${index}" class="${index === activeCandidate ? 'active' : ''}" aria-selected="${index === activeCandidate}">${String.fromCharCode(65 + index)}</button>`).join('')}</div><label class="candidate-name">房源名称<input id="candidateName" value="${escapeHtml(candidate.name)}" maxlength="40" /></label><div class="score-summary"><div class="score-ring" style="--score:${score}"><strong>${score.toFixed(0)}</strong><small>/ 100</small></div><div><span class="risk-pill ${category.tone}">${category.label}</span><p>${category.note}</p></div></div>
-  <div class="score-fields">${criteria.map((item) => `<label class="score-field"><span><i class="ph ${item.icon}"></i><b>${item.label}</b><small>权重 ${item.weight}%</small></span><input type="range" min="1" max="5" step="1" value="${candidate.scores[item.key]}" data-score="${item.key}" aria-label="${item.label}评分" /><output>${candidate.scores[item.key]} / 5</output><em>${item.help}</em></label>`).join('')}</div></div>
-  <div class="comparison-panel"><div class="panel-head"><div><span class="eyebrow">SIDE-BY-SIDE</span><h3>三个候选，一眼比较</h3></div><button class="reset-button" id="resetCandidates">重置样例</button></div><div class="comparison-list">${candidates.map((item, index) => { const itemScore = scoreCandidate(item); const itemCategory = scoreLabel(itemScore); return `<button data-candidate="${index}" class="comparison-row ${index === activeCandidate ? 'active' : ''}"><span>${String.fromCharCode(65 + index)}</span><div><b>${escapeHtml(item.name)}</b><small>${itemCategory.label}</small></div><strong>${itemScore.toFixed(0)}</strong><i class="ph ph-caret-right"></i></button>` }).join('')}</div><div class="evidence-checklist"><h4>看房时必须留下的证据</h4><ul><li><i class="ph ph-check-circle"></i>早晚高峰门到门通勤实测</li><li><i class="ph ph-check-circle"></i>同小区近 90 天挂牌与成交变化</li><li><i class="ph ph-check-circle"></i>噪声、采光、电梯与物业现场记录</li><li><i class="ph ph-check-circle"></i>税费、贷款资格与产权信息复核</li></ul></div></div></div>`
+  <div class="scorecard-layout"><div class="candidate-panel"><div class="candidate-tabs" role="tablist">${candidates.map((item, index) => `<button role="tab" data-candidate="${index}" class="${index === activeCandidate ? 'active' : ''}" aria-selected="${index === activeCandidate}">${String.fromCharCode(65 + index)}</button>`).join('')}</div><label class="candidate-name">房源名称<input id="candidateName" value="${escapeHtml(candidate.name)}" maxlength="40" /></label><div class="score-summary"><div class="score-ring" style="--score:${score.purchaseValueScore}"><strong>${score.purchaseValueScore.toFixed(0)}</strong><small>/ 100</small></div><div><span class="risk-pill ${category.tone}">${category.label}</span><p>品质 ${score.qualityScore.toFixed(0)} · 价格机会 ${score.priceOpportunityScore.toFixed(0)} · 流动性 ${score.liquidityScore.toFixed(0)}</p></div></div>
+  <div class="score-formula-note"><b>购买价值</b><span>品质 65% + 同质价格机会 25% + 流动性 10%</span><small>医院、户型、人车分流等缺少证据时应保留空白，不用默认分补齐。</small></div><div class="score-fields">${criteria.map((item) => `<label class="score-field"><span><i class="ph ${item.icon}"></i><b>${item.label}</b><small>${item.weightLabel}</small></span><input type="range" min="1" max="5" step="1" value="${candidate.scores[item.key]}" data-score="${item.key}" aria-label="${item.label}评分" /><output>${candidate.scores[item.key]} / 5</output><em>${item.help}</em></label>`).join('')}</div></div>
+  <div class="comparison-panel"><div class="panel-head"><div><span class="eyebrow">SIDE-BY-SIDE</span><h3>三个候选，一眼比较</h3></div><button class="reset-button" id="resetCandidates">重置样例</button></div><div class="comparison-list">${candidates.map((item, index) => { const itemScore = scoreCandidate(item); const itemCategory = scoreLabel(itemScore.purchaseValueScore); return `<button data-candidate="${index}" class="comparison-row ${index === activeCandidate ? 'active' : ''}"><span>${String.fromCharCode(65 + index)}</span><div><b>${escapeHtml(item.name)}</b><small>${itemCategory.label} · 品质 ${itemScore.qualityScore.toFixed(0)}</small></div><strong>${itemScore.purchaseValueScore.toFixed(0)}</strong><i class="ph ph-caret-right"></i></button>` }).join('')}</div><div class="evidence-checklist"><h4>看房时必须留下的证据</h4><ul><li><i class="ph ph-check-circle"></i>早晚高峰门到门通勤实测</li><li><i class="ph ph-check-circle"></i>三甲医院真实路线与急诊能力</li><li><i class="ph ph-check-circle"></i>南北通透、采光、噪声与遮挡记录</li><li><i class="ph ph-check-circle"></i>物业、绿化、停车与人车分流现场记录</li></ul></div></div></div>`
 }
 
 function render() {
@@ -243,7 +253,7 @@ function render() {
   <section class="taxonomy-section section-shell" id="taxonomy"><div class="section-intro" data-reveal><div><div class="overline">02 / SCENARIO PRESETS</div><h2>先跑情景，不猜结论</h2></div><p>三类资产是用于压力测试的假设组合，不是对具体小区的自动判定。</p></div><div class="taxonomy-grid" data-reveal>${(Object.entries(scenarios) as [Scenario, typeof scenarios[Scenario]][]).map(([key, item], index) => `<button class="taxonomy-card ${item.tone}" data-scenario="${key}" aria-pressed="${key === activeScenario}"><span class="taxonomy-index">0${index + 1}</span><div class="trend ${item.tone}"><i class="ph ${key === 'decline' ? 'ph-trend-down' : 'ph-trend-up'}"></i></div><div class="taxonomy-tag">${item.eyebrow}</div><h3>${item.label}</h3><p>${item.description}</p><div class="taxonomy-data"><span>涨幅假设 <b>${item.appreciation > 0 ? '+' : ''}${item.appreciation}%</b></span><span>租售比参考 <b>${item.rentRatio}%</b></span></div><span class="select-mark">套用此情景 <i class="ph ph-arrow-up-right"></i></span></button>`).join('')}</div></section>
   <section class="selection-section section-shell" id="selection">${selectionMarkup()}</section>
   <section class="method-section section-shell" id="method"><div class="section-intro"><div><div class="overline">04 / METHOD & SOURCES</div><h2>你能看见模型的边界</h2></div><p>本工具只在浏览器本地计算和保存，不上传你的收入、首付或房源评分。</p></div><div class="method-grid"><article><i class="ph ph-function"></i><h3>计算口径</h3><p>等额本息逐月摊还；租金与理财按月滚动；期末卖房净值扣除剩余贷款和卖出成本；临界涨幅用二分法求解。</p></article><article><i class="ph ph-database"></i><h3>政策与数据入口</h3><p>利率只是可编辑示例。资格、利率、税费和成交信息请在提交报价前从官方入口复核。</p><div class="source-links"><a href="https://gjj.beijing.gov.cn/web/zwgk61/2024zcwj/436433464/436433467/743903614/index.html" target="_blank" rel="noreferrer">北京公积金利率 <i class="ph ph-arrow-up-right"></i></a><a href="https://bjjs.zjw.beijing.gov.cn/eportal/ui?pageId=307749" target="_blank" rel="noreferrer">北京房地产数据 <i class="ph ph-arrow-up-right"></i></a><a href="https://zjw.beijing.gov.cn/bjjs/fdcjy/gfzg87/index.shtml" target="_blank" rel="noreferrer">购房资格核验 <i class="ph ph-arrow-up-right"></i></a></div></article><article class="disclaimer-card"><i class="ph ph-warning"></i><h3>风险声明</h3><p>结果不构成投资、贷款、税务或法律建议。模型不预测房价，也未纳入学区变化、重大维修、空置期、提前还款限制等所有个体因素。</p></article></div></section>
-  <footer><span class="brand-mini">资产分化 / Asset Divergence Lab</span><span>开源买房决策实验工具 · v0.3</span><span>本地计算 · 不上传数据</span></footer><div class="toast-region" id="toastRegion" role="status" aria-live="polite" aria-atomic="true"></div></main>`
+  <footer><span class="brand-mini">资产分化 / Asset Divergence Lab</span><span>开源买房决策实验工具 · v0.4</span><span>本地计算 · 不上传数据</span></footer><div class="toast-region" id="toastRegion" role="status" aria-live="polite" aria-atomic="true"></div></main>`
 }
 
 function refreshCalculator(syncInputs = true) {
@@ -289,7 +299,7 @@ function bindEvents() {
     }
     if (target.matches('#candidateName')) { candidates[activeCandidate].name = target.value; persistLocalState(); return }
     const scoreField = target.closest<HTMLInputElement>('input[data-score]')
-    if (scoreField) { candidates[activeCandidate].scores[scoreField.dataset.score as ScoreKey] = Number(scoreField.value); refreshSelection() }
+    if (scoreField) { candidates[activeCandidate].scores[scoreField.dataset.score as PropertyScoreKey] = Number(scoreField.value); refreshSelection() }
   })
   app.addEventListener('change', (event) => {
     const target = event.target as HTMLElement
@@ -324,7 +334,7 @@ function bindEvents() {
     if (target.closest('#resetInputs')) { inputs = { ...defaults }; activeScenario = null; viewMode = 'self'; refreshCalculator(); showToast('测算参数已恢复默认值', 'ph-arrow-counter-clockwise'); return }
     if (target.closest('#startCalc')) { document.querySelector('#model')?.scrollIntoView({ behavior: motionBehavior() }); return }
     if (target.closest('#saveReport')) {
-      const report = { generatedAt: new Date().toISOString(), modelVersion: '0.3', viewMode, inputs, result: calculateFinance(inputs, viewMode), wealthTimeline: calculateWealthTimeline(inputs, viewMode), candidates: candidates.map((item) => ({ ...item, score: scoreCandidate(item), classification: scoreLabel(scoreCandidate(item)).label })) }
+      const report = { generatedAt: new Date().toISOString(), modelVersion: '0.4', viewMode, inputs, result: calculateFinance(inputs, viewMode), wealthTimeline: calculateWealthTimeline(inputs, viewMode), candidates: candidates.map((item) => { const score = scoreCandidate(item); return { ...item, score, classification: scoreLabel(score.purchaseValueScore).label } }) }
       const url = URL.createObjectURL(new Blob([JSON.stringify(report, null, 2)], { type: 'application/json' }))
       const link = document.createElement('a'); link.href = url; link.download = '北京购房决策报告.json'; link.click(); URL.revokeObjectURL(url); showExportSuccess(); showToast('报告已导出到下载目录'); return
     }

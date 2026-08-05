@@ -3,6 +3,7 @@ import {
   calculatePurchaseValue,
   communityValueSamples,
   getCommunitySamples,
+  getCommunityScoreBreakdown,
   getPurchaseValueTier,
   parseCommunityValueDataset,
   resolveCommunityPosition,
@@ -20,6 +21,18 @@ describe('community purchase value model', () => {
   it('does not let a large discount override the quality gate', () => {
     const lowQuality = { ...communityValueSamples[0], qualityScore: 60, adjustedDiscount: 20, riskPenalty: 0 }
     expect(calculatePurchaseValue(lowQuality)).toBeLessThanOrEqual(64)
+  })
+
+  it('explains quality, price, liquidity and evidence coverage separately', () => {
+    const sample = {
+      ...communityValueSamples[0],
+      qualityDimensions: { location: 90, transit: 80, environment: 75 },
+    }
+    expect(getCommunityScoreBreakdown(sample)).toMatchObject({
+      qualityScore: sample.qualityScore,
+      evidenceCoverage: 65,
+      dimensions: sample.qualityDimensions,
+    })
   })
 
   it('provides multiple map samples for every supported district', () => {
