@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import { getCommunityNavigationState, navigateCommunitySelection, type CommunityNavigationDirection } from './community-navigation'
 import {
   calculatePurchaseValue,
   communityValueSamples,
@@ -93,6 +94,15 @@ export async function initHeroMap3d(host: HTMLElement) {
   const textureUrl = host.dataset.texture
   const communityDataUrl = host.dataset.communityValues
 
+  const communityStepper = document.createElement('nav')
+  communityStepper.className = 'community-stepper'
+  communityStepper.dataset.communityNavigator = 'true'
+  communityStepper.setAttribute('aria-label', '逐个切换当前筛选结果中的小区')
+  communityStepper.hidden = true
+  communityStepper.innerHTML = '<button type="button" data-community-direction="previous" aria-label="上一个小区"><i class="ph ph-arrow-up" aria-hidden="true"></i></button><output aria-live="polite">— / 0</output><button type="button" data-community-direction="next" aria-label="下一个小区"><i class="ph ph-arrow-down" aria-hidden="true"></i></button>'
+  statusStats?.before(communityStepper)
+  const communityStepOutput = communityStepper.querySelector<HTMLOutputElement>('output')
+
   if (!canvas || !textureUrl || !window.WebGLRenderingContext) {
     host.classList.add('map-3d-fallback')
     return () => undefined
@@ -142,6 +152,7 @@ export async function initHeroMap3d(host: HTMLElement) {
   let userImportedDataset = false
   let renderedDots: CommunityDot[] = []
   let redrawCommunityLayer = () => undefined
+  let updateCommunityNavigator = () => undefined
 
   const updateDatasetPresentation = (dataset: CommunityValueDataset) => {
     const dataDate = formatDataDate(dataset.updatedAt)
@@ -270,6 +281,28 @@ export async function initHeroMap3d(host: HTMLElement) {
     .filter(({ tier }) => activeValueFilter === 'all' || activeValueFilter === tier)
     .sort((a, b) => b.score - a.score)
 
+  updateCommunityNavigator = () => {
+    if (!activeDistrict) {
+      communityStepper.hidden = true
+      return
+    }
+    const communities = getVisibleCommunityScores(activeDistrict).map(({ sample }) => sample)
+    const navigation = getCommunityNavigationState(communities, activeCommunityId)
+    communityStepper.hidden = false
+    if (communityStepOutput) communityStepOutput.value = navigation.positionLabel
+    communityStepper.querySelectorAll<HTMLButtonElement>('button').forEach((button) => {
+      button.disabled = navigation.total === 0
+    })
+  }
+
+  const navigateCommunity = (direction: CommunityNavigationDirection) => {
+    if (!activeDistrict) return
+    const communities = getVisibleCommunityScores(activeDistrict).map(({ sample }) => sample)
+    const navigation = navigateCommunitySelection(communities, activeCommunityId, direction)
+    if (navigation.community) selectCommunity(navigation.community)
+    else updateCommunityNavigator()
+  }
+
   const drawCommunityDots = (key: DistrictKey) => {
     if (!communityDots) return
     const size = resolveCommunityCanvasSize(host.clientWidth, host.clientHeight, window.devicePixelRatio)
@@ -365,6 +398,7 @@ export async function initHeroMap3d(host: HTMLElement) {
     }).join('')
     communityLayer.hidden = false
     updateLegendState()
+    updateCommunityNavigator()
   }
 
   redrawCommunityLayer = () => {
@@ -402,7 +436,10 @@ export async function initHeroMap3d(host: HTMLElement) {
     })
     if (status) {
       status.dataset.valueTier = tier
-      status.setAttribute('aria-label', `${sample.name}购买价值详情`)
+      const navigation = activeDistrict
+        ? getCommunityNavigationState(getVisibleCommunityScores(activeDistrict).map(({ sample: item }) => item), sample.id)
+        : null
+      status.setAttribute('aria-label', `${sample.name}购买价值详情${navigation ? `，第${navigation.position}个，共${navigation.total}个` : ''}`)
     }
     if (statusTitle) statusTitle.innerHTML = tier === 'insufficient'
       ? `${escapeHtml(sample.name)}<em>数据不足 · 暂不评分</em>`
@@ -453,6 +490,11 @@ export async function initHeroMap3d(host: HTMLElement) {
   const onMapClick = (event: Event) => {
     if (drag.moved) return
     const targetElement = event.target as HTMLElement
+    const navigationButton = targetElement.closest<HTMLButtonElement>('[data-community-direction]')
+    if (navigationButton) {
+      navigateCommunity(navigationButton.dataset.communityDirection as CommunityNavigationDirection)
+      return
+    }
     const communityButton = targetElement.closest<HTMLButtonElement>('[data-community-id]')
     if (communityButton && activeDistrict) {
       const sample = getCommunitySamples(activeDistrict, activeCommunities).find((item) => item.id === communityButton.dataset.communityId)
@@ -570,6 +612,7 @@ export async function initHeroMap3d(host: HTMLElement) {
       exitButton.setAttribute('aria-hidden', 'true')
     }
     if (communityLayer) { communityLayer.hidden = true; communityLayer.innerHTML = '' }
+    communityStepper.hidden = true
     if (communityDots) {
       communityDots.hidden = true
       communityDots.getContext('2d')?.clearRect(0, 0, communityDots.width, communityDots.height)

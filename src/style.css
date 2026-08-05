@@ -5146,7 +5146,7 @@ main {
 }
 
 .map-detail {
-  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: start;
   gap: 10px 12px;
   width: min(340px, 48%);
@@ -5206,6 +5206,55 @@ main {
   grid-template-columns: 1.35fr 1fr 1fr;
   gap: 8px;
   padding-top: 4px;
+}
+
+.community-stepper {
+  display: grid;
+  grid-template-columns: 40px minmax(54px, auto) 40px;
+  align-items: center;
+  align-self: start;
+  gap: 5px;
+}
+
+.community-stepper[hidden] {
+  display: none;
+}
+
+.community-stepper button {
+  display: grid;
+  width: 40px;
+  height: 40px;
+  place-items: center;
+  border: 1px solid rgba(43, 22, 73, 0.16);
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.76);
+  color: var(--hero-ink);
+  cursor: pointer;
+  transition: transform 160ms ease, border-color 160ms ease, background-color 160ms ease;
+}
+
+.community-stepper button:hover,
+.community-stepper button:focus-visible {
+  border-color: rgba(43, 22, 73, 0.42);
+  background: #fff;
+  outline: 2px solid rgba(43, 22, 73, 0.2);
+  outline-offset: 2px;
+  transform: translateY(-1px);
+}
+
+.community-stepper button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.community-stepper output {
+  color: var(--hero-muted);
+  font-family: var(--mono);
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  text-align: center;
 }
 
 .map-detail-stats[hidden] {
@@ -5346,6 +5395,15 @@ main {
 
   .hero-map-interactive .map-detail-stats {
     display: none;
+  }
+
+  .community-stepper {
+    grid-template-columns: 44px minmax(54px, auto) 44px;
+  }
+
+  .community-stepper button {
+    width: 44px;
+    height: 44px;
   }
 
   .hero.reference-hero .capability-card,
