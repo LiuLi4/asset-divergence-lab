@@ -5072,3 +5072,241 @@ main {
     background: var(--ink);
   }
 }
+
+/* Hero map expansion and district drill-down */
+@media (min-width: 821px) {
+  .hero.reference-hero .hero-content {
+    grid-template-columns: minmax(310px, 0.58fr) minmax(0, 1.42fr);
+    column-gap: 0;
+  }
+
+  .hero.reference-hero .hero-map-visual {
+    width: min(1010px, 67vw);
+    margin: -6px -190px 0 -52px;
+    transform: none;
+  }
+
+  .hero.reference-hero .capability-dock {
+    width: 720px;
+  }
+}
+
+.hero.reference-hero .hero-map-visual {
+  aspect-ratio: 1528 / 1029;
+  contain: layout paint;
+}
+
+.hero.reference-hero .hero-map-visual img,
+.hero.reference-hero .hero-map-visual canvas {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.hero.reference-hero .hero-map-fallback {
+  transition: opacity 220ms ease, transform 520ms cubic-bezier(0.22, 1, 0.36, 1);
+  transform-origin: center;
+}
+
+.hero.reference-hero .hero-map-visual.district-detail-active.map-3d-fallback .hero-map-fallback,
+.hero.reference-hero .hero-map-visual.district-detail-active:not(.map-3d-ready) .hero-map-fallback {
+  transform: scale(1.28);
+}
+
+.map-label {
+  transition: opacity 220ms ease, visibility 220ms ease, border-color 180ms ease, background-color 180ms ease, box-shadow 180ms ease, transform 180ms ease;
+}
+
+.district-detail-active .map-label:not(.active) {
+  visibility: hidden;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.district-detail-active button.map-label.active {
+  top: 9%;
+  right: auto;
+  bottom: auto;
+  left: 50%;
+  min-width: 94px;
+  padding: 9px 14px;
+  transform: translateX(-50%) scale(1.06);
+}
+
+.district-detail-active button.map-label.active:hover,
+.district-detail-active button.map-label.active:focus-visible {
+  transform: translateX(-50%) translateY(-2px) scale(1.08);
+}
+
+.map-detail {
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: start;
+  gap: 10px 12px;
+  width: min(340px, 48%);
+  padding: 12px 14px;
+  transition: width 320ms ease, padding 320ms ease, background-color 320ms ease;
+  pointer-events: auto;
+}
+
+.map-detail-copy {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+}
+
+.map-detail-copy b {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.map-detail-copy b em {
+  color: #2f9c80;
+  font-size: 13px;
+  font-style: normal;
+}
+
+.map-back-button {
+  display: inline-flex;
+  min-height: 32px;
+  align-items: center;
+  gap: 6px;
+  padding: 0 11px;
+  border: 1px solid rgba(43, 22, 73, 0.16);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.72);
+  color: var(--hero-ink);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.map-back-button[hidden] {
+  display: none;
+}
+
+.map-back-button:hover,
+.map-back-button:focus-visible {
+  background: #fff;
+  outline: 2px solid rgba(43, 22, 73, 0.26);
+  outline-offset: 2px;
+}
+
+.map-detail-stats {
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: 1.35fr 1fr 1fr;
+  gap: 8px;
+  padding-top: 4px;
+}
+
+.map-detail-stats[hidden] {
+  display: none;
+}
+
+.map-detail-stats span {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  padding: 8px 9px;
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.54);
+}
+
+.map-detail-stats small {
+  color: var(--hero-muted);
+  font-size: 9px;
+}
+
+.map-detail-stats b {
+  overflow: hidden;
+  font-size: 10px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.district-detail-active .map-detail {
+  width: min(600px, 74%);
+  padding: 14px 16px;
+  background: rgba(250, 247, 252, 0.92);
+  box-shadow: 0 18px 44px rgba(55, 30, 79, 0.13);
+}
+
+.hero.reference-hero .capability-card,
+.hero.reference-hero .capability-card:not(:first-child) {
+  min-width: 0;
+  grid-template-columns: 31px minmax(0, 1fr);
+  gap: 12px;
+  padding: 0 22px;
+}
+
+.hero.reference-hero .capability-card b,
+.hero.reference-hero .capability-card small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (min-width: 821px) and (max-width: 1180px) {
+  .hero.reference-hero .hero-content {
+    grid-template-columns: minmax(300px, 0.68fr) minmax(0, 1.32fr);
+  }
+
+  .hero.reference-hero .hero-map-visual {
+    width: min(830px, 63vw);
+    margin-right: -125px;
+    margin-left: -36px;
+  }
+
+  .hero.reference-hero .capability-dock {
+    width: 650px;
+  }
+}
+
+@media (max-width: 820px) {
+  .hero.reference-hero .hero-map-visual {
+    aspect-ratio: 1528 / 1029;
+  }
+
+  .map-detail-stats {
+    grid-template-columns: 1fr;
+  }
+
+  .district-detail-active .map-detail {
+    width: min(520px, 72%);
+  }
+}
+
+@media (max-width: 600px) {
+  .district-detail-active button.map-label.active {
+    position: absolute;
+    top: auto;
+    right: auto;
+    bottom: 4%;
+    left: 50%;
+  }
+
+  .hero-map-interactive .map-detail,
+  .hero-map-interactive.district-detail-active .map-detail {
+    right: 18%;
+    bottom: 22%;
+    left: 18%;
+    width: auto;
+  }
+
+  .hero-map-interactive .map-detail-stats {
+    display: none;
+  }
+
+  .hero.reference-hero .capability-card,
+  .hero.reference-hero .capability-card:not(:first-child) {
+    grid-template-columns: 20px minmax(0, 1fr);
+    gap: 6px;
+    padding: 0 7px;
+  }
+
+  .hero.reference-hero .capability-card b {
+    font-size: 0.625rem;
+  }
+}
