@@ -13,7 +13,8 @@ import {
   type PurchaseValueTier,
 } from './community-value'
 
-type ValueFilter = PurchaseValueTier | 'all'
+type CommunityMapTier = PurchaseValueTier | 'insufficient'
+type ValueFilter = CommunityMapTier | 'all'
 
 type DistrictInfo = {
   name: string
@@ -41,18 +42,23 @@ const escapeHtml = (value: string) => value.replace(/[&<>'"]/g, (character) => (
   '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;',
 })[character]!)
 
-const tierColour: Record<PurchaseValueTier, string> = {
+const tierColour: Record<CommunityMapTier, string> = {
   strong: '#147a5d',
   watch: '#a66b16',
   cautious: '#b44b59',
+  insufficient: '#786991',
 }
+
+const getCommunityTier = (sample: CommunityValueSample): CommunityMapTier => sample.dataStatus === 'insufficient'
+  ? 'insufficient'
+  : getPurchaseValueTier(calculatePurchaseValue(sample))
 
 const unitPrice = (value: number) => value >= 10_000 ? `${(value / 10_000).toFixed(1)}万/㎡` : `${Math.round(value).toLocaleString('zh-CN')}元/㎡`
 
 type CommunityDot = {
   sample: CommunityValueSample
   score: number
-  tier: PurchaseValueTier
+  tier: CommunityMapTier
   x: number
   y: number
 }
@@ -74,6 +80,7 @@ export async function initHeroMap3d(host: HTMLElement) {
   const dataFile = host.querySelector<HTMLInputElement>('#communityDataFile')
   const dataImportStatus = host.querySelector<HTMLElement>('#communityDataStatus')
   const textureUrl = host.dataset.texture
+  const communityDataUrl = host.dataset.communityValues
 
   if (!canvas || !textureUrl || !window.WebGLRenderingContext) {
     host.classList.add('map-3d-fallback')
@@ -121,6 +128,7 @@ export async function initHeroMap3d(host: HTMLElement) {
     sourceName: '项目内置演示数据',
     communities: communityValueSamples,
   }
+  let userImportedDataset = false
   let renderedDots: CommunityDot[] = []
   let redrawCommunityLayer = () => undefined
 
@@ -151,6 +159,8 @@ export async function initHeroMap3d(host: HTMLElement) {
   const resize = () => {
     const width = Math.max(host.clientWidth, 1)
     const height = Math.max(host.clientHeight, 1)
+    const hostRect = host.getBoundingClientRect()
+    host.style.setProperty('--map-viewport-center-offset', `${window.innerWidth / 2 - (hostRect.left + hostRect.width / 2)}px`)
     renderer.setSize(width, height, false)
     camera.aspect = width / height
     camera.position.z = width < 560 ? 14.6 : width < 900 ? 13.9 : 13.2
@@ -230,7 +240,7 @@ export async function initHeroMap3d(host: HTMLElement) {
   const getVisibleCommunityScores = (key: DistrictKey) => getCommunitySamples(key, activeCommunities)
     .map((sample) => {
       const score = calculatePurchaseValue(sample)
-      return { sample, score, tier: getPurchaseValueTier(score), position: resolveCommunityPosition(sample) }
+      return { sample, score, tier: getCommunityTier(sample), position: resolveCommunityPosition(sample) }
     })
     .filter(({ tier }) => activeValueFilter === 'all' || activeValueFilter === tier)
     .sort((a, b) => b.score - a.score)
@@ -328,7 +338,10 @@ export async function initHeroMap3d(host: HTMLElement) {
       const selected = activeCommunityId === sample.id
       const id = escapeHtml(sample.id)
       const name = escapeHtml(sample.name)
-      return `<button class="community-value-marker tier-${tier}${selected ? ' active' : ''}" type="button" data-community-id="${id}" style="--marker-x:${position.x}%;--marker-y:${position.y}%;--marker-order:${index}" aria-label="${name}，购买价值${score}分，${purchaseValueBands[tier].label}" aria-pressed="${selected}"><span class="community-score">${score}</span><span class="community-marker-copy"><b>${name}</b><small>同质折价 ${sample.adjustedDiscount >= 0 ? '+' : ''}${sample.adjustedDiscount.toFixed(1)}%</small></span></button>`
+      const tierLabel = tier === 'insufficient' ? '数据不足，暂不评分' : `购买价值${score}分，${purchaseValueBands[tier].label}`
+      const markerValue = tier === 'insufficient' ? '—' : score
+      const markerNote = tier === 'insufficient' ? '近期成交或可比不足' : `同质折价 ${sample.adjustedDiscount >= 0 ? '+' : ''}${sample.adjustedDiscount.toFixed(1)}%`
+      return `<button class="community-value-marker tier-${tier}${selected ? ' active' : ''}" type="button" data-community-id="${id}" style="--marker-x:${position.x}%;--marker-y:${position.y}%;--marker-order:${index}" aria-label="${name}，${tierLabel}" aria-pressed="${selected}"><span class="community-score">${markerValue}</span><span class="community-marker-copy"><b>${name}</b><small>${markerNote}</small></span></button>`
     }).join('')
     communityLayer.hidden = false
     updateLegendState()
@@ -341,25 +354,27 @@ export async function initHeroMap3d(host: HTMLElement) {
   const showDistrictSummary = (key: DistrictKey) => {
     const info = districts[key]
     const samples = getCommunitySamples(key, activeCommunities)
-    const scores = samples.map(calculatePurchaseValue)
+    const scoredSamples = samples.filter((sample) => sample.dataStatus !== 'insufficient')
+    const scores = scoredSamples.map(calculatePurchaseValue)
     const average = Math.round(scores.reduce((total, score) => total + score, 0) / Math.max(scores.length, 1))
     const strongCount = scores.filter((score) => getPurchaseValueTier(score) === 'strong').length
+    const insufficientCount = samples.length - scoredSamples.length
     if (status) {
       status.removeAttribute('data-value-tier')
       status.setAttribute('aria-label', `已进入${info.name}小区价值地图`)
     }
-    if (statusTitle) statusTitle.innerHTML = `${info.name} · 小区价值<em>${average}分</em>`
-    if (statusSummary) statusSummary.textContent = '所有小区均以颜色点位显示；重点候选显示名称，点击点位可查看明细。'
+    if (statusTitle) statusTitle.innerHTML = `${info.name} · 小区价值<em>${scores.length ? `${average}分` : '暂无评分'}</em>`
+    if (statusSummary) statusSummary.textContent = '有成交证据的小区按分数着色；灰色表示近期成交或同质可比不足。点击任一点位查看明细。'
     if (statusStats) {
       statusStats.hidden = false
-      statusStats.innerHTML = `<span><small>已加载小区</small><b>${samples.length.toLocaleString('zh-CN')} 个</b></span><span><small>优先核验</small><b>${strongCount.toLocaleString('zh-CN')} 个</b></span><span><small>数据来源</small><b>${escapeHtml(activeDataset.sourceName)}</b></span>`
+      statusStats.innerHTML = `<span><small>全部 / 已评分</small><b>${samples.length.toLocaleString('zh-CN')} / ${scoredSamples.length.toLocaleString('zh-CN')}</b></span><span><small>优先核验 / 数据不足</small><b>${strongCount.toLocaleString('zh-CN')} / ${insufficientCount.toLocaleString('zh-CN')}</b></span><span><small>数据来源</small><b>${escapeHtml(activeDataset.sourceName)}</b></span>`
     }
   }
 
   const selectCommunity = (sample: CommunityValueSample) => {
     activeCommunityId = sample.id
     const score = calculatePurchaseValue(sample)
-    const tier = getPurchaseValueTier(score)
+    const tier = getCommunityTier(sample)
     communityLayer?.querySelectorAll<HTMLButtonElement>('[data-community-id]').forEach((button) => {
       const selected = button.dataset.communityId === sample.id
       button.classList.toggle('active', selected)
@@ -369,14 +384,21 @@ export async function initHeroMap3d(host: HTMLElement) {
       status.dataset.valueTier = tier
       status.setAttribute('aria-label', `${sample.name}购买价值详情`)
     }
-    if (statusTitle) statusTitle.innerHTML = `${escapeHtml(sample.name)}<em>${score}分 · ${purchaseValueBands[tier].label}</em>`
+    if (statusTitle) statusTitle.innerHTML = tier === 'insufficient'
+      ? `${escapeHtml(sample.name)}<em>数据不足 · 暂不评分</em>`
+      : `${escapeHtml(sample.name)}<em>${score}分 · ${purchaseValueBands[tier].label}</em>`
     if (statusSummary) statusSummary.textContent = `${sample.zone} · 重点核验：${sample.watch}`
     if (statusStats) {
       statusStats.hidden = false
       const priceEvidence = sample.latestUnitPrice && sample.nearbyMedianUnitPrice
         ? `<span><small>最新成交 / 周边中位</small><b>${unitPrice(sample.latestUnitPrice)} / ${unitPrice(sample.nearbyMedianUnitPrice)}</b></span>`
-        : `<span><small>同质可比折价</small><b>${sample.adjustedDiscount >= 0 ? '+' : ''}${sample.adjustedDiscount.toFixed(1)}%</b></span>`
-      statusStats.innerHTML = `<span><small>优质小区分</small><b>${sample.qualityScore} / 100</b></span>${priceEvidence}<span><small>折价 · 180天成交 / 可比</small><b>${sample.adjustedDiscount >= 0 ? '+' : ''}${sample.adjustedDiscount.toFixed(1)}% · ${sample.transactions180d} / ${sample.comparableSamples}</b></span>`
+        : sample.latestUnitPrice
+          ? `<span><small>最新成交 / 周边中位</small><b>${unitPrice(sample.latestUnitPrice)} / 样本不足</b></span>`
+          : `<span><small>参考价 / 最新成交</small><b>${sample.referenceUnitPrice ? unitPrice(sample.referenceUnitPrice) : '暂无'} / 暂无</b></span>`
+      const evidenceValue = tier === 'insufficient'
+        ? `暂不计算 · ${sample.transactions180d} / ${sample.comparableSamples}`
+        : `${sample.adjustedDiscount >= 0 ? '+' : ''}${sample.adjustedDiscount.toFixed(1)}% · ${sample.transactions180d} / ${sample.comparableSamples}`
+      statusStats.innerHTML = `<span><small>优质小区分</small><b>${sample.qualityScore} / 100</b></span>${priceEvidence}<span><small>折价 · 180天成交 / 可比</small><b>${evidenceValue}</b></span>`
     }
     renderCommunityMarkers(sample.district)
   }
@@ -434,7 +456,7 @@ export async function initHeroMap3d(host: HTMLElement) {
       const selectedSample = activeCommunityId
         ? getCommunitySamples(activeDistrict, activeCommunities).find((sample) => sample.id === activeCommunityId)
         : undefined
-      if (selectedSample && activeValueFilter !== 'all' && getPurchaseValueTier(calculatePurchaseValue(selectedSample)) !== activeValueFilter) {
+      if (selectedSample && activeValueFilter !== 'all' && getCommunityTier(selectedSample) !== activeValueFilter) {
         activeCommunityId = null
         showDistrictSummary(activeDistrict)
       }
@@ -451,6 +473,7 @@ export async function initHeroMap3d(host: HTMLElement) {
     if (dataImportStatus) dataImportStatus.textContent = '正在校验…'
     try {
       const dataset = parseCommunityValueDataset(JSON.parse(await file.text()))
+      userImportedDataset = true
       activeDataset = dataset
       activeCommunities = dataset.communities
       activeCommunityId = null
@@ -465,6 +488,36 @@ export async function initHeroMap3d(host: HTMLElement) {
       if (dataImportStatus) dataImportStatus.textContent = error instanceof Error ? `导入失败：${error.message}` : '导入失败：文件格式错误'
     } finally {
       if (dataFile) dataFile.value = ''
+    }
+  }
+
+  const loadDefaultCommunityData = async () => {
+    if (!communityDataUrl) return
+    if (dataMode) dataMode.textContent = '授权数据加载中…'
+    try {
+      const response = await fetch(communityDataUrl)
+      if (!response.ok) throw new Error(`HTTP ${response.status}`)
+      const dataset = parseCommunityValueDataset(await response.json())
+      if (disposed || userImportedDataset) return
+      activeDataset = dataset
+      activeCommunities = dataset.communities
+      activeCommunityId = null
+      activeValueFilter = 'all'
+      host.dataset.communityDataReady = 'true'
+      if (dataMode) {
+        dataMode.textContent = `${dataset.label} · ${dataset.communities.length.toLocaleString('zh-CN')} 个`
+        dataMode.title = dataset.sourceUrl ? `${dataset.sourceName} · ${dataset.sourceUrl}` : dataset.sourceName
+      }
+      if (dataImportStatus) dataImportStatus.textContent = `${dataset.sourceName} · 已授权发布`
+      if (activeDistrict) {
+        renderCommunityMarkers(activeDistrict)
+        showDistrictSummary(activeDistrict)
+      }
+    } catch (error) {
+      host.dataset.communityDataReady = 'fallback'
+      if (dataMode) dataMode.textContent = '示例模型 · 28 个'
+      if (dataImportStatus) dataImportStatus.textContent = '正式数据加载失败，当前显示示例'
+      console.warn('小区购买价值数据加载失败，已回退到演示数据', error)
     }
   }
 
@@ -515,6 +568,7 @@ export async function initHeroMap3d(host: HTMLElement) {
   resetButton?.addEventListener('click', reset)
   exitButton?.addEventListener('click', reset)
   dataFile?.addEventListener('change', importCommunityData)
+  void loadDefaultCommunityData()
 
   const intersectionObserver = new IntersectionObserver(([entry]) => {
     visible = entry.isIntersecting

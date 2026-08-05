@@ -1,6 +1,7 @@
 export type DistrictKey = 'haidian' | 'chaoyang' | 'shijingshan' | 'xicheng' | 'fengtai' | 'tongzhou' | 'daxing'
 
 export type PurchaseValueTier = 'strong' | 'watch' | 'cautious'
+export type CommunityDataStatus = 'scored' | 'insufficient'
 
 export interface CommunityValueSample {
   id: string
@@ -10,8 +11,10 @@ export interface CommunityValueSample {
   position?: { x: number; y: number }
   longitude?: number
   latitude?: number
+  dataStatus?: CommunityDataStatus
   qualityScore: number
   adjustedDiscount: number
+  referenceUnitPrice?: number
   latestUnitPrice?: number
   nearbyMedianUnitPrice?: number
   latestTransactionDate?: string
@@ -122,6 +125,8 @@ export function parseCommunityValueDataset(input: unknown): CommunityValueDatase
       if (!numberInRange(sample[key], 0, 100)) throw new Error(`第 ${index + 1} 条记录 ${key} 必须在 0–100`)
     })
     if (!numberInRange(sample.adjustedDiscount, -50, 50)) throw new Error(`第 ${index + 1} 条记录 adjustedDiscount 必须在 -50–50`)
+    if (sample.dataStatus !== undefined && sample.dataStatus !== 'scored' && sample.dataStatus !== 'insufficient') throw new Error(`第 ${index + 1} 条记录 dataStatus 格式错误`)
+    if (sample.referenceUnitPrice !== undefined && !numberInRange(sample.referenceUnitPrice, 0, 1_000_000)) throw new Error(`第 ${index + 1} 条记录 referenceUnitPrice 格式错误`)
     if (sample.latestUnitPrice !== undefined && !numberInRange(sample.latestUnitPrice, 0, 1_000_000)) throw new Error(`第 ${index + 1} 条记录 latestUnitPrice 格式错误`)
     if (sample.nearbyMedianUnitPrice !== undefined && !numberInRange(sample.nearbyMedianUnitPrice, 0, 1_000_000)) throw new Error(`第 ${index + 1} 条记录 nearbyMedianUnitPrice 格式错误`)
     if (!numberInRange(sample.riskPenalty, 0, 100)) throw new Error(`第 ${index + 1} 条记录 riskPenalty 必须在 0–100`)
@@ -142,8 +147,10 @@ export function parseCommunityValueDataset(input: unknown): CommunityValueDatase
       position: position ? { x: position.x as number, y: position.y as number } : undefined,
       longitude: typeof sample.longitude === 'number' ? sample.longitude : undefined,
       latitude: typeof sample.latitude === 'number' ? sample.latitude : undefined,
+      dataStatus: sample.dataStatus === 'insufficient' ? 'insufficient' as const : 'scored' as const,
       qualityScore: sample.qualityScore as number,
       adjustedDiscount: sample.adjustedDiscount as number,
+      referenceUnitPrice: typeof sample.referenceUnitPrice === 'number' ? sample.referenceUnitPrice : undefined,
       latestUnitPrice: typeof sample.latestUnitPrice === 'number' ? sample.latestUnitPrice : undefined,
       nearbyMedianUnitPrice: typeof sample.nearbyMedianUnitPrice === 'number' ? sample.nearbyMedianUnitPrice : undefined,
       latestTransactionDate: nonEmptyString(sample.latestTransactionDate) ? (sample.latestTransactionDate as string).trim() : undefined,
