@@ -5310,3 +5310,41 @@ main {
     font-size: 0.625rem;
   }
 }
+
+/* Beijing map brand mark */
+.brand-mark.brand-map-logo {
+  width: 50px;
+  height: 38px;
+  overflow: hidden;
+  padding: 4px 5px;
+  border: 0;
+  border-radius: 11px;
+  background: var(--hero-ink);
+  box-shadow: 0 10px 28px rgba(43, 22, 73, 0.17);
+}
+
+.brand-map-logo img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  filter: brightness(0) invert(1);
+  opacity: 0.96;
+  transform: scale(1.08);
+  transition: opacity 180ms ease, transform 180ms ease;
+}
+
+.brand:hover .brand-map-logo img,
+.brand:focus-visible .brand-map-logo img {
+  opacity: 1;
+  transform: scale(1.16);
+}
+
+@media (max-width: 600px) {
+  .brand-mark.brand-map-logo {
+    width: 44px;
+    height: 34px;
+    padding: 4px;
+    border-radius: 10px;
+  }
+}
