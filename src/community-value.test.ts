@@ -7,6 +7,7 @@ import {
   parseCommunityValueDataset,
   resolveCommunityPosition,
 } from './community-value'
+import { resolveCommunityCanvasSize } from './hero-map-3d'
 
 describe('community purchase value model', () => {
   it('uses stable score bands for map colours', () => {
@@ -63,5 +64,15 @@ describe('community purchase value model', () => {
     const dataset = parseCommunityValueDataset(source)
     expect(dataset.communities).toHaveLength(5_000)
     expect(getCommunitySamples('fengtai', dataset.communities).length).toBeGreaterThan(700)
+  })
+
+  it('sizes the community overlay from the visible map instead of a hidden canvas', () => {
+    expect(resolveCommunityCanvasSize(1_010, 680, 2)).toEqual({
+      cssWidth: 1_010,
+      cssHeight: 680,
+      pixelRatio: 2,
+      width: 2_020,
+      height: 1_360,
+    })
   })
 })

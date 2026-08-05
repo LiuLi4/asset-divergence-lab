@@ -46,6 +46,14 @@ export const purchaseValueBands: Record<PurchaseValueTier, { label: string; rang
   cautious: { label: '谨慎进入', range: '0–64' },
 }
 
+export function formatDataDate(value: string) {
+  const isoDate = value.match(/^(\d{4}-\d{2}-\d{2})/)
+  if (isoDate) return isoDate[1]
+  const parsed = new Date(value)
+  if (Number.isNaN(parsed.getTime())) return value || '时间未知'
+  return parsed.toISOString().slice(0, 10)
+}
+
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value))
 const districtKeys: DistrictKey[] = ['haidian', 'chaoyang', 'shijingshan', 'xicheng', 'fengtai', 'tongzhou', 'daxing']
 const districtBounds: Record<DistrictKey, { minLongitude: number; maxLongitude: number; minLatitude: number; maxLatitude: number }> = {

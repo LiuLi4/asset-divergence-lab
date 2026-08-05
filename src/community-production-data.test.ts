@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
-import { calculatePurchaseValue, getPurchaseValueTier, parseCommunityValueDataset } from './community-value'
+import { calculatePurchaseValue, formatDataDate, getPurchaseValueTier, parseCommunityValueDataset } from './community-value'
 
 const rawDataset = JSON.parse(readFileSync(new URL('../public/data/community-values.json', import.meta.url), 'utf8'))
 const dataset = parseCommunityValueDataset(rawDataset)
@@ -15,6 +15,17 @@ describe('authorized Beijing community production dataset', () => {
     const districts = ['haidian', 'chaoyang', 'shijingshan', 'xicheng', 'fengtai', 'tongzhou', 'daxing'] as const
     districts.forEach((district) => {
       expect(dataset.communities.filter((community) => community.district === district).length).toBeGreaterThan(0)
+    })
+
+    expect(formatDataDate(dataset.updatedAt)).toBe('2025-08-01')
+    expect(Object.fromEntries(districts.map((district) => [district, dataset.communities.filter((community) => community.district === district).length]))).toEqual({
+      haidian: 1_617,
+      chaoyang: 2_130,
+      shijingshan: 311,
+      xicheng: 1_018,
+      fengtai: 1_284,
+      tongzhou: 845,
+      daxing: 767,
     })
   })
 

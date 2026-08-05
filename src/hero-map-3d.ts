@@ -2,6 +2,7 @@ import * as THREE from 'three'
 import {
   calculatePurchaseValue,
   communityValueSamples,
+  formatDataDate,
   getCommunitySamples,
   getPurchaseValueTier,
   parseCommunityValueDataset,
@@ -18,7 +19,6 @@ type ValueFilter = CommunityMapTier | 'all'
 
 type DistrictInfo = {
   name: string
-  value: string
   note: string
   focus: [number, number]
   offset: [number, number]
@@ -28,13 +28,24 @@ type DistrictInfo = {
 }
 
 const districts: Record<DistrictKey, DistrictInfo> = {
-  haidian: { name: '海淀区', value: '+2.1%', note: '就业与教育资源密度较高，仍需逐小区核验楼龄和流动性。', focus: [-0.1, -0.08], offset: [1.35, -0.8], zones: '中关村 · 上地 · 西二旗', strength: '教育 / 科技就业', watch: '楼龄与流动性' },
-  chaoyang: { name: '朝阳区', value: '+1.3%', note: '板块分化明显，核心就业半径与产品供给共同决定表现。', focus: [-0.02, 0.08], offset: [-1.35, -0.75], zones: '望京 · 朝青 · 双井', strength: '国际配套 / 就业', watch: '板块分化' },
-  shijingshan: { name: '石景山区', value: '−3.6%', note: '示意压力情景，重点观察产业兑现、通勤与新增供给。', focus: [-0.04, -0.12], offset: [2.05, 0.05], zones: '古城 · 苹果园 · 鲁谷', strength: '更新空间 / 总价', watch: '产业兑现' },
-  xicheng: { name: '西城区', value: '+3.4%', note: '核心区稀缺性较强，但高总价和具体房屋瑕疵仍需单独定价。', focus: [0.015, 0.01], offset: [0.1, -0.05], zones: '金融街 · 德胜 · 广安门', strength: '核心稀缺 / 配套', watch: '高总价与房况' },
-  fengtai: { name: '丰台区', value: '+0.6%', note: '丽泽、总部基地等板块需要分别评估通勤、兑现节奏与新增供给。', focus: [-0.06, 0.025], offset: [0.65, 0.95], zones: '丽泽 · 总部基地 · 方庄', strength: '产业更新 / 交通', watch: '新增供给' },
-  tongzhou: { name: '通州区', value: '−1.8%', note: '示意压力情景，公共服务兑现和跨区通勤是关键变量。', focus: [0.025, 0.13], offset: [-2.15, 0.05], zones: '运河商务区 · 梨园 · 台湖', strength: '副中心建设', watch: '跨区通勤' },
-  daxing: { name: '大兴区', value: '−2.2%', note: '示意压力情景，板块距离、产业和同质供应会影响流动性。', focus: [0.08, 0.02], offset: [-0.65, 1.25], zones: '亦庄 · 西红门 · 黄村', strength: '产业 / 新城配套', watch: '同质供应' },
+  haidian: { name: '海淀区', note: '就业与教育资源密度较高，仍需逐小区核验楼龄和流动性。', focus: [-0.1, -0.08], offset: [1.35, -0.8], zones: '中关村 · 上地 · 西二旗', strength: '教育 / 科技就业', watch: '楼龄与流动性' },
+  chaoyang: { name: '朝阳区', note: '板块分化明显，核心就业半径与产品供给共同决定表现。', focus: [-0.02, 0.08], offset: [-1.35, -0.75], zones: '望京 · 朝青 · 双井', strength: '国际配套 / 就业', watch: '板块分化' },
+  shijingshan: { name: '石景山区', note: '重点观察产业兑现、通勤与新增供给。', focus: [-0.04, -0.12], offset: [2.05, 0.05], zones: '古城 · 苹果园 · 鲁谷', strength: '更新空间 / 总价', watch: '产业兑现' },
+  xicheng: { name: '西城区', note: '核心区稀缺性较强，但高总价和具体房屋瑕疵仍需单独定价。', focus: [0.015, 0.01], offset: [0.1, -0.05], zones: '金融街 · 德胜 · 广安门', strength: '核心稀缺 / 配套', watch: '高总价与房况' },
+  fengtai: { name: '丰台区', note: '丽泽、总部基地等板块需要分别评估通勤、兑现节奏与新增供给。', focus: [-0.06, 0.025], offset: [0.65, 0.95], zones: '丽泽 · 总部基地 · 方庄', strength: '产业更新 / 交通', watch: '新增供给' },
+  tongzhou: { name: '通州区', note: '公共服务兑现和跨区通勤是关键变量。', focus: [0.025, 0.13], offset: [-2.15, 0.05], zones: '运河商务区 · 梨园 · 台湖', strength: '副中心建设', watch: '跨区通勤' },
+  daxing: { name: '大兴区', note: '板块距离、产业和同质供应会影响流动性。', focus: [0.08, 0.02], offset: [-0.65, 1.25], zones: '亦庄 · 西红门 · 黄村', strength: '产业 / 新城配套', watch: '同质供应' },
+}
+
+export function resolveCommunityCanvasSize(width: number, height: number, devicePixelRatio: number) {
+  const pixelRatio = Math.min(Math.max(devicePixelRatio, 1), 2)
+  return {
+    cssWidth: Math.max(width, 1),
+    cssHeight: Math.max(height, 1),
+    pixelRatio,
+    width: Math.round(Math.max(width, 1) * pixelRatio),
+    height: Math.round(Math.max(height, 1) * pixelRatio),
+  }
 }
 
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value))
@@ -131,6 +142,20 @@ export async function initHeroMap3d(host: HTMLElement) {
   let userImportedDataset = false
   let renderedDots: CommunityDot[] = []
   let redrawCommunityLayer = () => undefined
+
+  const updateDatasetPresentation = (dataset: CommunityValueDataset) => {
+    const dataDate = formatDataDate(dataset.updatedAt)
+    const total = dataset.communities.length.toLocaleString('zh-CN')
+    if (dataMode) dataMode.textContent = `成交数据截至 ${dataDate} · ${total} 个小区`
+    if (!activeDistrict && statusSummary) statusSummary.textContent = `成交数据截至 ${dataDate} · 共可查看 ${total} 个小区，点击区县进入详情。`
+    host.querySelectorAll<HTMLButtonElement>('[data-map-district]').forEach((button) => {
+      const key = button.dataset.mapDistrict as DistrictKey
+      const count = getCommunitySamples(key, dataset.communities).length
+      const countLabel = button.querySelector<HTMLElement>('[data-district-community-count]')
+      if (countLabel) countLabel.textContent = `${count.toLocaleString('zh-CN')} 个`
+      button.setAttribute('aria-label', `进入${districts[key].name}区域地图，可查看${count.toLocaleString('zh-CN')}个小区，数据截至${dataDate}`)
+    })
+  }
 
   const render = (time = performance.now()) => {
     if (disposed) return
@@ -247,20 +272,15 @@ export async function initHeroMap3d(host: HTMLElement) {
 
   const drawCommunityDots = (key: DistrictKey) => {
     if (!communityDots) return
-    const rect = communityDots.getBoundingClientRect()
-    const width = Math.max(rect.width, 1)
-    const height = Math.max(rect.height, 1)
-    const pixelRatio = Math.min(window.devicePixelRatio, 2)
-    const expectedWidth = Math.round(width * pixelRatio)
-    const expectedHeight = Math.round(height * pixelRatio)
-    if (communityDots.width !== expectedWidth || communityDots.height !== expectedHeight) {
-      communityDots.width = expectedWidth
-      communityDots.height = expectedHeight
+    const size = resolveCommunityCanvasSize(host.clientWidth, host.clientHeight, window.devicePixelRatio)
+    if (communityDots.width !== size.width || communityDots.height !== size.height) {
+      communityDots.width = size.width
+      communityDots.height = size.height
     }
-    const context = communityDots.getContext('2d')
+    const context = communityDots.getContext('2d', { alpha: true })
     if (!context) return
-    context.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0)
-    context.clearRect(0, 0, width, height)
+    context.setTransform(size.pixelRatio, 0, 0, size.pixelRatio, 0, 0)
+    context.clearRect(0, 0, size.cssWidth, size.cssHeight)
 
     const records = getVisibleCommunityScores(key)
     const radius = records.length > 1_000 ? 2.2 : records.length > 200 ? 2.8 : 3.8
@@ -268,8 +288,8 @@ export async function initHeroMap3d(host: HTMLElement) {
       sample,
       score,
       tier,
-      x: position.x / 100 * width,
-      y: position.y / 100 * height,
+      x: position.x / 100 * size.cssWidth,
+      y: position.y / 100 * size.cssHeight,
     }))
 
     renderedDots.forEach((dot) => {
@@ -364,10 +384,10 @@ export async function initHeroMap3d(host: HTMLElement) {
       status.setAttribute('aria-label', `已进入${info.name}小区价值地图`)
     }
     if (statusTitle) statusTitle.innerHTML = `${info.name} · 小区价值<em>${scores.length ? `${average}分` : '暂无评分'}</em>`
-    if (statusSummary) statusSummary.textContent = '有成交证据的小区按分数着色；灰色表示近期成交或同质可比不足。点击任一点位查看明细。'
+    if (statusSummary) statusSummary.textContent = `成交数据截至 ${formatDataDate(activeDataset.updatedAt)}。有成交证据的小区按分数着色；灰色表示近期成交或同质可比不足。`
     if (statusStats) {
       statusStats.hidden = false
-      statusStats.innerHTML = `<span><small>全部 / 已评分</small><b>${samples.length.toLocaleString('zh-CN')} / ${scoredSamples.length.toLocaleString('zh-CN')}</b></span><span><small>优先核验 / 数据不足</small><b>${strongCount.toLocaleString('zh-CN')} / ${insufficientCount.toLocaleString('zh-CN')}</b></span><span><small>数据来源</small><b>${escapeHtml(activeDataset.sourceName)}</b></span>`
+      statusStats.innerHTML = `<span><small>全部 / 已评分</small><b>${samples.length.toLocaleString('zh-CN')} / ${scoredSamples.length.toLocaleString('zh-CN')}</b></span><span><small>优先核验 / 数据不足</small><b>${strongCount.toLocaleString('zh-CN')} / ${insufficientCount.toLocaleString('zh-CN')}</b></span><span><small>数据截至 / 来源</small><b>${formatDataDate(activeDataset.updatedAt)} · ${escapeHtml(activeDataset.sourceName)}</b></span>`
     }
   }
 
@@ -390,11 +410,12 @@ export async function initHeroMap3d(host: HTMLElement) {
     if (statusSummary) statusSummary.textContent = `${sample.zone} · 重点核验：${sample.watch}`
     if (statusStats) {
       statusStats.hidden = false
+      const transactionDate = sample.latestTransactionDate ? formatDataDate(sample.latestTransactionDate) : formatDataDate(activeDataset.updatedAt)
       const priceEvidence = sample.latestUnitPrice && sample.nearbyMedianUnitPrice
-        ? `<span><small>最新成交 / 周边中位</small><b>${unitPrice(sample.latestUnitPrice)} / ${unitPrice(sample.nearbyMedianUnitPrice)}</b></span>`
+        ? `<span><small>最新成交（${transactionDate}）/ 周边中位</small><b>${unitPrice(sample.latestUnitPrice)} / ${unitPrice(sample.nearbyMedianUnitPrice)}</b></span>`
         : sample.latestUnitPrice
-          ? `<span><small>最新成交 / 周边中位</small><b>${unitPrice(sample.latestUnitPrice)} / 样本不足</b></span>`
-          : `<span><small>参考价 / 最新成交</small><b>${sample.referenceUnitPrice ? unitPrice(sample.referenceUnitPrice) : '暂无'} / 暂无</b></span>`
+          ? `<span><small>最新成交（${transactionDate}）/ 周边中位</small><b>${unitPrice(sample.latestUnitPrice)} / 样本不足</b></span>`
+          : `<span><small>参考价（截至 ${formatDataDate(activeDataset.updatedAt)}）/ 最新成交</small><b>${sample.referenceUnitPrice ? unitPrice(sample.referenceUnitPrice) : '暂无'} / 暂无</b></span>`
       const evidenceValue = tier === 'insufficient'
         ? `暂不计算 · ${sample.transactions180d} / ${sample.comparableSamples}`
         : `${sample.adjustedDiscount >= 0 ? '+' : ''}${sample.adjustedDiscount.toFixed(1)}% · ${sample.transactions180d} / ${sample.comparableSamples}`
@@ -478,7 +499,7 @@ export async function initHeroMap3d(host: HTMLElement) {
       activeCommunities = dataset.communities
       activeCommunityId = null
       activeValueFilter = 'all'
-      if (dataMode) dataMode.textContent = `${dataset.label} · ${dataset.communities.length.toLocaleString('zh-CN')} 个`
+      updateDatasetPresentation(dataset)
       if (dataImportStatus) dataImportStatus.textContent = '已在本地加载，不会上传'
       if (activeDistrict) {
         renderCommunityMarkers(activeDistrict)
@@ -504,8 +525,8 @@ export async function initHeroMap3d(host: HTMLElement) {
       activeCommunityId = null
       activeValueFilter = 'all'
       host.dataset.communityDataReady = 'true'
+      updateDatasetPresentation(dataset)
       if (dataMode) {
-        dataMode.textContent = `${dataset.label} · ${dataset.communities.length.toLocaleString('zh-CN')} 个`
         dataMode.title = dataset.sourceUrl ? `${dataset.sourceName} · ${dataset.sourceUrl}` : dataset.sourceName
       }
       if (dataImportStatus) dataImportStatus.textContent = `${dataset.sourceName} · 已授权发布`
@@ -515,7 +536,7 @@ export async function initHeroMap3d(host: HTMLElement) {
       }
     } catch (error) {
       host.dataset.communityDataReady = 'fallback'
-      if (dataMode) dataMode.textContent = '示例模型 · 28 个'
+      updateDatasetPresentation(activeDataset)
       if (dataImportStatus) dataImportStatus.textContent = '正式数据加载失败，当前显示示例'
       console.warn('小区购买价值数据加载失败，已回退到演示数据', error)
     }
@@ -542,7 +563,7 @@ export async function initHeroMap3d(host: HTMLElement) {
       status.setAttribute('aria-label', '北京核心区地图总览')
     }
     if (statusTitle) statusTitle.textContent = '北京 · 核心区'
-    if (statusSummary) statusSummary.textContent = '点击区县进入区域地图，拖拽地图可调整视角。'
+    if (statusSummary) statusSummary.textContent = `成交数据截至 ${formatDataDate(activeDataset.updatedAt)} · 共可查看 ${activeDataset.communities.length.toLocaleString('zh-CN')} 个小区，点击区县进入详情。`
     if (statusStats) { statusStats.hidden = true; statusStats.innerHTML = '' }
     if (exitButton) {
       exitButton.hidden = true
@@ -579,6 +600,23 @@ export async function initHeroMap3d(host: HTMLElement) {
   const onVisibilityChange = () => document.hidden ? stop() : start()
   document.addEventListener('visibilitychange', onVisibilityChange)
 
+  const onContextLost = (event: Event) => {
+    event.preventDefault()
+    stop()
+    host.classList.remove('map-3d-ready')
+    host.classList.add('map-3d-fallback')
+    fallback?.setAttribute('aria-hidden', 'false')
+  }
+  const onContextRestored = () => {
+    host.classList.remove('map-3d-fallback')
+    host.classList.add('map-3d-ready')
+    fallback?.setAttribute('aria-hidden', 'true')
+    resize()
+    start()
+  }
+  canvas.addEventListener('webglcontextlost', onContextLost)
+  canvas.addEventListener('webglcontextrestored', onContextRestored)
+
   fallback?.setAttribute('aria-hidden', 'true')
   host.classList.add('map-3d-ready')
   start()
@@ -589,6 +627,8 @@ export async function initHeroMap3d(host: HTMLElement) {
     resizeObserver.disconnect()
     intersectionObserver.disconnect()
     document.removeEventListener('visibilitychange', onVisibilityChange)
+    canvas.removeEventListener('webglcontextlost', onContextLost)
+    canvas.removeEventListener('webglcontextrestored', onContextRestored)
     host.removeEventListener('pointerdown', onPointerDown)
     host.removeEventListener('pointermove', onPointerMove)
     host.removeEventListener('pointerup', finishDrag)

@@ -2146,7 +2146,8 @@ body {
   transition: opacity 260ms ease;
 }
 
-.hero-map-interactive.map-3d-ready canvas {
+.hero-map-interactive.map-3d-ready #heroMapCanvas,
+.hero-map-interactive .community-value-dots:not([hidden]) {
   opacity: 1;
 }
 
@@ -5363,10 +5364,19 @@ main {
 
 .hero.reference-hero .hero-map-visual canvas.community-value-dots {
   z-index: 4;
+  background: transparent;
   object-fit: fill;
   filter: none;
   cursor: crosshair;
   pointer-events: auto;
+}
+
+.map-label .community-count {
+  color: var(--hero-muted);
+  font-family: var(--mono);
+  font-size: 0.72em;
+  font-weight: 700;
+  letter-spacing: 0.01em;
 }
 
 .community-value-dots[hidden],
