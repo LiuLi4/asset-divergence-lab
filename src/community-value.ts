@@ -12,6 +12,9 @@ export interface CommunityValueSample {
   latitude?: number
   qualityScore: number
   adjustedDiscount: number
+  latestUnitPrice?: number
+  nearbyMedianUnitPrice?: number
+  latestTransactionDate?: string
   liquidityScore: number
   confidenceScore: number
   riskPenalty: number
@@ -119,6 +122,8 @@ export function parseCommunityValueDataset(input: unknown): CommunityValueDatase
       if (!numberInRange(sample[key], 0, 100)) throw new Error(`第 ${index + 1} 条记录 ${key} 必须在 0–100`)
     })
     if (!numberInRange(sample.adjustedDiscount, -50, 50)) throw new Error(`第 ${index + 1} 条记录 adjustedDiscount 必须在 -50–50`)
+    if (sample.latestUnitPrice !== undefined && !numberInRange(sample.latestUnitPrice, 0, 1_000_000)) throw new Error(`第 ${index + 1} 条记录 latestUnitPrice 格式错误`)
+    if (sample.nearbyMedianUnitPrice !== undefined && !numberInRange(sample.nearbyMedianUnitPrice, 0, 1_000_000)) throw new Error(`第 ${index + 1} 条记录 nearbyMedianUnitPrice 格式错误`)
     if (!numberInRange(sample.riskPenalty, 0, 100)) throw new Error(`第 ${index + 1} 条记录 riskPenalty 必须在 0–100`)
     if (!numberInRange(sample.transactions180d, 0, 100_000) || !numberInRange(sample.comparableSamples, 0, 100_000)) {
       throw new Error(`第 ${index + 1} 条记录成交样本必须是非负数`)
@@ -139,6 +144,9 @@ export function parseCommunityValueDataset(input: unknown): CommunityValueDatase
       latitude: typeof sample.latitude === 'number' ? sample.latitude : undefined,
       qualityScore: sample.qualityScore as number,
       adjustedDiscount: sample.adjustedDiscount as number,
+      latestUnitPrice: typeof sample.latestUnitPrice === 'number' ? sample.latestUnitPrice : undefined,
+      nearbyMedianUnitPrice: typeof sample.nearbyMedianUnitPrice === 'number' ? sample.nearbyMedianUnitPrice : undefined,
+      latestTransactionDate: nonEmptyString(sample.latestTransactionDate) ? (sample.latestTransactionDate as string).trim() : undefined,
       liquidityScore: sample.liquidityScore as number,
       confidenceScore: sample.confidenceScore as number,
       riskPenalty: sample.riskPenalty as number,

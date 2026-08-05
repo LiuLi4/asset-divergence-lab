@@ -29,6 +29,12 @@ const median = (values) => {
   return sorted.length % 2 ? sorted[middle] : (sorted[middle - 1] + sorted[middle]) / 2
 }
 const hash = (value) => [...value].reduce((result, character) => (result * 31 + character.charCodeAt(0)) >>> 0, 2166136261).toString(36)
+const distanceKm = (left, right) => {
+  const latitudeRadians = (left.latitude + right.latitude) / 2 * Math.PI / 180
+  const latitudeKm = (left.latitude - right.latitude) * 111.32
+  const longitudeKm = (left.longitude - right.longitude) * 111.32 * Math.cos(latitudeRadians)
+  return Math.hypot(latitudeKm, longitudeKm)
+}
 
 function parseCsvLine(line) {
   const result = []
@@ -78,11 +84,13 @@ await forEachCsvRecord(transactionsPath, (record) => {
   const district = districtMap.get(record['区域']?.trim())
   const timestamp = Date.parse(record['成交日期'])
   const unitPrice = number(record['成交单价_元每平'] ?? record['成交单价'])
+  const area = number(record['面积_平方米'] ?? record['面积'])
+  const rooms = number(record['室数'])
   const name = (record['标准小区名称'] || record['小区名称'] || '').trim()
-  if (!district || !name || !unitPrice || !Number.isFinite(timestamp) || timestamp < cutoff) return
+  if (!district || !name || !unitPrice || unitPrice < 8_000 || unitPrice > 250_000 || (area && (area < 15 || area > 400)) || !Number.isFinite(timestamp) || timestamp < cutoff) return
   const key = `${district}:${name}`
   const group = transactions.get(key) ?? []
-  group.push({ timestamp, unitPrice })
+  group.push({ timestamp, unitPrice, area, rooms })
   transactions.set(key, group)
 })
 
@@ -106,25 +114,67 @@ await forEachCsvRecord(communitiesPath, (record) => {
     tags: record['标签'] || '',
     propertyCompany: record['物业公司'] || '',
     latestPrice: latest.unitPrice,
+    latestTransactionDate: new Date(latest.timestamp).toISOString().slice(0, 10),
+    latestArea: latest.area,
+    latestRooms: latest.rooms,
     transactions180d: group.length,
   })
 })
 
-const comparableGroups = new Map()
+const zoneGroups = new Map()
+const spatialGroups = new Map()
+const gridSize = 0.025
 communities.forEach((community) => {
   const key = `${community.district}:${community.zone}`
-  const group = comparableGroups.get(key) ?? []
-  group.push(community.latestPrice)
-  comparableGroups.set(key, group)
+  const zoneGroup = zoneGroups.get(key) ?? []
+  zoneGroup.push(community)
+  zoneGroups.set(key, zoneGroup)
+  if (Number.isFinite(community.longitude) && Number.isFinite(community.latitude)) {
+    const spatialKey = `${community.district}:${Math.floor(community.longitude / gridSize)}:${Math.floor(community.latitude / gridSize)}`
+    const spatialGroup = spatialGroups.get(spatialKey) ?? []
+    spatialGroup.push(community)
+    spatialGroups.set(spatialKey, spatialGroup)
+  }
 })
+
+const comparableShapeMatches = (community, candidate) => {
+  if (candidate === community) return false
+  if (community.year && candidate.year && Math.abs(community.year - candidate.year) > 15) return false
+  if (community.latestArea && candidate.latestArea) {
+    const ratio = candidate.latestArea / community.latestArea
+    if (ratio < 0.7 || ratio > 1.4) return false
+  }
+  if (community.latestRooms && candidate.latestRooms && Math.abs(community.latestRooms - candidate.latestRooms) > 1) return false
+  return true
+}
+
+const getComparableCommunities = (community) => {
+  const result = new Set()
+  const zoneGroup = zoneGroups.get(`${community.district}:${community.zone}`) ?? []
+  zoneGroup.forEach((candidate) => {
+    if (comparableShapeMatches(community, candidate)) result.add(candidate)
+  })
+  if (result.size < 5 && Number.isFinite(community.longitude) && Number.isFinite(community.latitude)) {
+    const longitudeCell = Math.floor(community.longitude / gridSize)
+    const latitudeCell = Math.floor(community.latitude / gridSize)
+    for (let longitudeOffset = -2; longitudeOffset <= 2; longitudeOffset += 1) {
+      for (let latitudeOffset = -2; latitudeOffset <= 2; latitudeOffset += 1) {
+        const group = spatialGroups.get(`${community.district}:${longitudeCell + longitudeOffset}:${latitudeCell + latitudeOffset}`) ?? []
+        group.forEach((candidate) => {
+          if (distanceKm(community, candidate) <= 3 && comparableShapeMatches(community, candidate)) result.add(candidate)
+        })
+      }
+    }
+  }
+  return [...result]
+}
 
 const currentYear = new Date(latestTimestamp).getUTCFullYear()
 const outputCommunities = communities.flatMap((community) => {
-  let comparablePrices = comparableGroups.get(`${community.district}:${community.zone}`) ?? []
-  if (comparablePrices.length < 5) comparablePrices = communities.filter((item) => item.district === community.district).map((item) => item.latestPrice)
+  const comparableCommunities = getComparableCommunities(community)
+  const comparablePrices = comparableCommunities.map((candidate) => candidate.latestPrice)
   const comparableMedian = median(comparablePrices)
-  if (!comparableMedian) return []
-  const adjustedDiscount = clamp((comparableMedian - community.latestPrice) / comparableMedian * 100, -50, 50)
+  const adjustedDiscount = comparableMedian ? clamp((comparableMedian - community.latestPrice) / comparableMedian * 100, -30, 30) : 0
   const age = community.year ? currentYear - community.year : undefined
   const ageScore = age === undefined ? 60 : age <= 10 ? 95 : age <= 20 ? 86 : age <= 30 ? 76 : age <= 40 ? 66 : 54
   const greenRate = community.greenRate === undefined ? undefined : community.greenRate > 1 ? community.greenRate / 100 : community.greenRate
@@ -133,10 +183,10 @@ const outputCommunities = communities.flatMap((community) => {
   const transitScore = /地铁|轨道/.test(community.tags) ? 92 : 62
   const managementScore = community.propertyCompany && !/暂无|自管/.test(community.propertyCompany) ? 82 : 58
   const liquidityScore = clamp(40 + community.transactions180d * 5, 0, 100)
-  const confidenceScore = clamp(35 + community.transactions180d * 4 + Math.min(comparablePrices.length, 20) * 2, 0, 100)
+  const confidenceScore = clamp(20 + community.transactions180d * 5 + Math.min(comparablePrices.length, 12) * 5, 0, 100)
   const qualityScore = Math.round(ageScore * 0.3 + greenScore * 0.2 + densityScore * 0.2 + transitScore * 0.15 + managementScore * 0.15)
-  const riskPenalty = Math.round((age && age > 40 ? 4 : 0) + (community.floorAreaRatio && community.floorAreaRatio > 4 ? 3 : 0) + (community.transactions180d < 3 ? 4 : 0))
-  const watch = [age && age > 40 ? '楼龄与维护' : '', community.floorAreaRatio && community.floorAreaRatio > 4 ? '居住密度' : '', community.transactions180d < 5 ? '成交样本偏少' : '逐套房况与产权'].filter(Boolean).join('、')
+  const riskPenalty = Math.round((age && age > 40 ? 4 : 0) + (community.floorAreaRatio && community.floorAreaRatio > 4 ? 3 : 0) + (community.transactions180d < 3 ? 4 : 0) + (comparablePrices.length < 3 ? 12 : comparablePrices.length < 5 ? 6 : 0))
+  const watch = [age && age > 40 ? '楼龄与维护' : '', community.floorAreaRatio && community.floorAreaRatio > 4 ? '居住密度' : '', community.transactions180d < 5 ? '成交样本偏少' : '', comparablePrices.length < 5 ? '同质可比不足' : '', '逐套房况与产权'].filter(Boolean).join('、')
   return [{
     id: `${community.district}-${hash(community.name)}`,
     district: community.district,
@@ -146,6 +196,9 @@ const outputCommunities = communities.flatMap((community) => {
     latitude: community.latitude,
     qualityScore,
     adjustedDiscount: Number(adjustedDiscount.toFixed(2)),
+    latestUnitPrice: Math.round(community.latestPrice),
+    nearbyMedianUnitPrice: comparableMedian ? Math.round(comparableMedian) : undefined,
+    latestTransactionDate: community.latestTransactionDate,
     liquidityScore: Math.round(liquidityScore),
     confidenceScore: Math.round(confidenceScore),
     riskPenalty,

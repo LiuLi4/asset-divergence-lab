@@ -47,6 +47,8 @@ const tierColour: Record<PurchaseValueTier, string> = {
   cautious: '#b44b59',
 }
 
+const unitPrice = (value: number) => value >= 10_000 ? `${(value / 10_000).toFixed(1)}万/㎡` : `${Math.round(value).toLocaleString('zh-CN')}元/㎡`
+
 type CommunityDot = {
   sample: CommunityValueSample
   score: number
@@ -371,7 +373,10 @@ export async function initHeroMap3d(host: HTMLElement) {
     if (statusSummary) statusSummary.textContent = `${sample.zone} · 重点核验：${sample.watch}`
     if (statusStats) {
       statusStats.hidden = false
-      statusStats.innerHTML = `<span><small>优质小区分</small><b>${sample.qualityScore} / 100</b></span><span><small>同质可比折价</small><b>${sample.adjustedDiscount >= 0 ? '+' : ''}${sample.adjustedDiscount.toFixed(1)}%</b></span><span><small>180天成交 / 可比样本</small><b>${sample.transactions180d} / ${sample.comparableSamples} 套</b></span>`
+      const priceEvidence = sample.latestUnitPrice && sample.nearbyMedianUnitPrice
+        ? `<span><small>最新成交 / 周边中位</small><b>${unitPrice(sample.latestUnitPrice)} / ${unitPrice(sample.nearbyMedianUnitPrice)}</b></span>`
+        : `<span><small>同质可比折价</small><b>${sample.adjustedDiscount >= 0 ? '+' : ''}${sample.adjustedDiscount.toFixed(1)}%</b></span>`
+      statusStats.innerHTML = `<span><small>优质小区分</small><b>${sample.qualityScore} / 100</b></span>${priceEvidence}<span><small>折价 · 180天成交 / 可比</small><b>${sample.adjustedDiscount >= 0 ? '+' : ''}${sample.adjustedDiscount.toFixed(1)}% · ${sample.transactions180d} / ${sample.comparableSamples}</b></span>`
     }
     renderCommunityMarkers(sample.district)
   }

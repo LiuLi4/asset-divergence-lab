@@ -32,10 +32,11 @@ describe('community purchase value model', () => {
       label: '授权测试数据',
       updatedAt: '2026-08-05',
       sourceName: '测试来源',
-      communities: [{ ...communityValueSamples[0], position: undefined, longitude: 116.31, latitude: 39.99 }],
+      communities: [{ ...communityValueSamples[0], position: undefined, longitude: 116.31, latitude: 39.99, latestUnitPrice: 70_500, nearbyMedianUnitPrice: 77_000, latestTransactionDate: '2026-07-28' }],
     })
     expect(imported.communities).toHaveLength(1)
     expect(imported.communities[0].name).toBe('万泉新新家园')
+    expect(imported.communities[0].nearbyMedianUnitPrice).toBe(77_000)
     const position = resolveCommunityPosition(imported.communities[0])
     expect(position.x).toBeGreaterThanOrEqual(0)
     expect(position.x).toBeLessThanOrEqual(100)
@@ -47,6 +48,7 @@ describe('community purchase value model', () => {
     const sample = communityValueSamples[0]
     expect(() => parseCommunityValueDataset([sample, sample])).toThrow('重复 id')
     expect(() => parseCommunityValueDataset([{ ...sample, qualityScore: 101 }])).toThrow('qualityScore')
+    expect(() => parseCommunityValueDataset([{ ...sample, latestUnitPrice: -1 }])).toThrow('latestUnitPrice')
   })
 
   it('indexes a large imported collection by district', () => {

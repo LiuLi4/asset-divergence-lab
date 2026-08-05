@@ -23,6 +23,9 @@
       "latitude": 39.99,
       "qualityScore": 86,
       "adjustedDiscount": 8.5,
+      "latestUnitPrice": 70500,
+      "nearbyMedianUnitPrice": 77000,
+      "latestTransactionDate": "2026-07-28",
       "liquidityScore": 81,
       "confidenceScore": 78,
       "riskPenalty": 2,
@@ -66,3 +69,15 @@ npm run data:build -- communities.csv transactions.csv community-values.json
 ```
 
 转换器以成交表的最新日期为基准读取近 180 天记录，用同板块（少于 5 个可比小区时退回同区）最新成交单价中位数计算折价，并从楼龄、绿化率、容积率、轨道交通标签、物业信息、成交量和可比样本量构建质量、流动性与置信度字段。生成后仍应抽样核对小区名称匹配、坐标系、异常成交和评分阈值；脚本不会替输入数据取得许可。
+
+## OpenStreetMap 小区坐标底表
+
+`scripts/build-osm-community-catalog.mjs` 可以把 Overpass 返回的住宅要素与七区行政边界做点面空间连接，输出稳定的 OSM ID、名称、区和 WGS84 坐标：
+
+```bash
+npm run data:osm -- beijing-residential.json beijing-districts.json public/data/beijing-osm-community-catalog.json
+```
+
+当前仓库生成的目录遵守 ODbL 1.0，并保留 `© OpenStreetMap contributors` 署名。OSM 覆盖率取决于贡献者编辑情况，它是可合法复用的坐标和名称底表，不包含成交价，也不能单独生成购买价值分数。
+
+当前生成快照位于 `public/data/beijing-osm-community-catalog.json`，共 4,590 个七区住宅要素：海淀 1,049、朝阳 1,171、石景山 244、西城 244、丰台 855、通州 522、大兴 505。构建器会剔除纯数字楼栋名称，并按行政区多边形进行空间归属。

@@ -9,6 +9,7 @@
     "build": "tsc && vite build",
     "preview": "vite preview",
     "data:build": "node scripts/build-community-values.mjs",
+    "data:osm": "node scripts/build-osm-community-catalog.mjs",
     "test": "vitest run",
     "check": "npm run test && npm run build"
   },

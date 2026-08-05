@@ -39,6 +39,7 @@
 - Final production-preview console check returned no errors or warnings.
 - Full-data stress state imported 5,000 locally generated records and rendered 714 Fengtai points on one canvas. Desktop retained 10 collision-free labels; mobile retained 6. Geometry audits returned zero label-pair, legend/label, detail/label, detail/capability overlaps and no horizontal overflow.
 - Invalid-import state rejected an empty `communities` array, kept the previously loaded 5,000-record dataset active, and exposed the validation error beside the importer.
+- Licensed-data-shaped audit imported 2,701 locally converted community records, including 454 Fengtai value points. Selecting 鼎恒中心 exposed score `83`, latest transaction `3.0万/㎡`, nearby homogeneous median `4.7万/㎡`, adjusted discount `+30.0%`, and evidence counts `3 / 38`; the audit data itself was not committed because its repository has no declared data license.
 
 ## Comparison history
 
