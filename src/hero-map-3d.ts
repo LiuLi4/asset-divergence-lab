@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import { buildCommunityLocationContext } from './community-map-context'
 import { getCommunityNavigationState, navigateCommunitySelection, type CommunityNavigationDirection } from './community-navigation'
 import {
   calculatePurchaseValue,
@@ -94,6 +95,20 @@ export async function initHeroMap3d(host: HTMLElement) {
   const textureUrl = host.dataset.texture
   const communityDataUrl = host.dataset.communityValues
 
+  const localMap = document.createElement('section')
+  localMap.className = 'community-local-map'
+  localMap.setAttribute('aria-label', '所选小区的道路与周边公开地图')
+  localMap.hidden = true
+  localMap.innerHTML = '<iframe loading="lazy" referrerpolicy="strict-origin-when-cross-origin" title="所选小区周边地图"></iframe><span><i class="ph ph-map-pin" aria-hidden="true"></i> 道路与公开配套 · OpenStreetMap</span>'
+  host.querySelector('.map-hotspots')?.before(localMap)
+  const localMapFrame = localMap.querySelector<HTMLIFrameElement>('iframe')
+
+  const communityLocation = document.createElement('section')
+  communityLocation.className = 'community-location-context'
+  communityLocation.setAttribute('aria-label', '小区位置和周边参照')
+  communityLocation.hidden = true
+  status?.append(communityLocation)
+
   const communityStepper = document.createElement('nav')
   communityStepper.className = 'community-stepper'
   communityStepper.dataset.communityNavigator = 'true'
@@ -153,6 +168,12 @@ export async function initHeroMap3d(host: HTMLElement) {
   let renderedDots: CommunityDot[] = []
   let redrawCommunityLayer = () => undefined
   let updateCommunityNavigator = () => undefined
+
+  const closeCommunityLocation = () => {
+    host.classList.remove('community-location-active')
+    localMap.hidden = true
+    communityLocation.hidden = true
+  }
 
   const updateDatasetPresentation = (dataset: CommunityValueDataset) => {
     const dataDate = formatDataDate(dataset.updatedAt)
@@ -406,6 +427,7 @@ export async function initHeroMap3d(host: HTMLElement) {
   }
 
   const showDistrictSummary = (key: DistrictKey) => {
+    closeCommunityLocation()
     const info = districts[key]
     const samples = getCommunitySamples(key, activeCommunities)
     const scoredSamples = samples.filter((sample) => sample.dataStatus !== 'insufficient')
@@ -445,6 +467,20 @@ export async function initHeroMap3d(host: HTMLElement) {
       ? `${escapeHtml(sample.name)}<em>数据不足 · 暂不评分</em>`
       : `${escapeHtml(sample.name)}<em>${score}分 · ${purchaseValueBands[tier].label}</em>`
     if (statusSummary) statusSummary.textContent = `${sample.zone} · 重点核验：${sample.watch}`
+    const location = buildCommunityLocationContext(sample, activeCommunities)
+    if (location && localMapFrame) {
+      host.classList.add('community-location-active')
+      localMap.hidden = false
+      localMapFrame.title = `${sample.name}周边道路与公开配套地图`
+      localMapFrame.src = location.embedUrl
+      const nearby = location.nearby.length
+        ? location.nearby.map(({ community, distanceKm }, index) => `<li><i>${index + 1}</i><span><b>${escapeHtml(community.name)}</b><small>${escapeHtml(community.zone)} · ${distanceKm < 1 ? `${Math.round(distanceKm * 1_000)}m` : `${distanceKm.toFixed(1)}km`}</small></span></li>`).join('')
+        : '<li class="empty">暂无可定位的周边小区参照</li>'
+      communityLocation.innerHTML = `<div class="community-location-metrics"><span><small>商圈 / 坐标</small><b>${escapeHtml(sample.zone)} · ${location.coordinateLabel}</b></span><span><small>500m / 1km 内小区</small><b>${location.within500m} / ${location.within1km}</b></span><a href="${location.externalUrl}" target="_blank" rel="noreferrer"><i class="ph ph-arrow-square-out" aria-hidden="true"></i> 打开周边地图</a></div><ol class="nearby-community-list">${nearby}</ol><p>位置基于公开坐标；地图展示道路与公开配套要素，教育资格、医疗等级及实际步行距离需另行核验。</p>`
+      communityLocation.hidden = false
+    } else {
+      closeCommunityLocation()
+    }
     if (statusStats) {
       statusStats.hidden = false
       const transactionDate = sample.latestTransactionDate ? formatDataDate(sample.latestTransactionDate) : formatDataDate(activeDataset.updatedAt)
@@ -613,6 +649,7 @@ export async function initHeroMap3d(host: HTMLElement) {
     }
     if (communityLayer) { communityLayer.hidden = true; communityLayer.innerHTML = '' }
     communityStepper.hidden = true
+    closeCommunityLocation()
     if (communityDots) {
       communityDots.hidden = true
       communityDots.getContext('2d')?.clearRect(0, 0, communityDots.width, communityDots.height)

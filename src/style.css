@@ -2155,6 +2155,56 @@ body {
   opacity: 0;
 }
 
+.community-local-map {
+  position: absolute;
+  z-index: 3;
+  inset: 0;
+  overflow: hidden;
+  background: #eee9f1;
+  opacity: 1;
+  transition: opacity 260ms ease;
+}
+
+.community-local-map[hidden] {
+  display: none;
+}
+
+.community-local-map iframe {
+  width: 100%;
+  height: 100%;
+  border: 0;
+  filter: saturate(0.72) contrast(0.96) brightness(1.04);
+}
+
+.community-local-map > span {
+  position: absolute;
+  right: 14px;
+  bottom: 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 9px;
+  border: 1px solid rgba(43, 22, 73, 0.12);
+  border-radius: 999px;
+  background: rgba(250, 247, 252, 0.88);
+  color: var(--hero-muted);
+  font-size: 9px;
+  font-weight: 700;
+  pointer-events: none;
+}
+
+.community-location-active #heroMapCanvas,
+.community-location-active .hero-map-fallback,
+.community-location-active .map-hotspots,
+.community-location-active .community-value-dots,
+.community-location-active .community-value-layer,
+.community-location-active .map-value-legend,
+.community-location-active .map-controls {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
 .hero-map-fallback {
   transition: opacity 220ms ease;
 }
@@ -5257,6 +5307,118 @@ main {
   text-align: center;
 }
 
+.community-location-context {
+  display: grid;
+  grid-column: 1 / -1;
+  gap: 7px;
+  padding-top: 2px;
+}
+
+.community-location-context[hidden] {
+  display: none;
+}
+
+.community-location-metrics {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(90px, 0.7fr) auto;
+  align-items: center;
+  gap: 7px;
+}
+
+.community-location-metrics > span {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+  padding: 6px 8px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.5);
+}
+
+.community-location-metrics small,
+.nearby-community-list small,
+.community-location-context p {
+  color: var(--hero-muted);
+  font-size: 8px;
+}
+
+.community-location-metrics b {
+  overflow: hidden;
+  font-size: 9px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.community-location-metrics a {
+  display: inline-flex;
+  min-height: 34px;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 0 10px;
+  border: 1px solid rgba(43, 22, 73, 0.16);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.72);
+  color: var(--hero-ink);
+  font-size: 9px;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.community-location-metrics a:hover,
+.community-location-metrics a:focus-visible {
+  border-color: rgba(43, 22, 73, 0.42);
+  background: #fff;
+  outline: 2px solid rgba(43, 22, 73, 0.2);
+  outline-offset: 2px;
+}
+
+.nearby-community-list {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+  list-style: none;
+}
+
+.nearby-community-list li {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 6px;
+}
+
+.nearby-community-list li > i {
+  display: grid;
+  width: 20px;
+  height: 20px;
+  flex: 0 0 20px;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--hero-ink);
+  color: white;
+  font-size: 8px;
+  font-style: normal;
+  font-weight: 700;
+}
+
+.nearby-community-list li > span {
+  display: grid;
+  min-width: 0;
+}
+
+.nearby-community-list b {
+  overflow: hidden;
+  font-size: 8px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.community-location-context p {
+  margin: 0;
+  line-height: 1.35;
+}
+
 .map-detail-stats[hidden] {
   display: none;
 }
@@ -5283,10 +5445,20 @@ main {
 }
 
 .district-detail-active .map-detail {
+  z-index: 8;
   width: min(600px, 74%);
   padding: 14px 16px;
   background: rgba(250, 247, 252, 0.92);
   box-shadow: 0 18px 44px rgba(55, 30, 79, 0.13);
+}
+
+.district-detail-active .map-detail[data-value-tier] {
+  width: min(560px, 68%);
+  padding: 12px 14px;
+  background: rgba(250, 247, 252, 0.88);
+  box-shadow: 0 14px 36px rgba(55, 30, 79, 0.11);
+  -webkit-backdrop-filter: blur(10px) saturate(115%);
+  backdrop-filter: blur(10px) saturate(115%);
 }
 
 .hero-map-interactive:not(.district-detail-active) .map-detail {
@@ -5397,6 +5569,46 @@ main {
     display: none;
   }
 
+  .hero-map-interactive.district-detail-active .map-detail[data-value-tier] {
+    right: auto;
+    bottom: 3%;
+    left: calc(50% + var(--map-viewport-center-offset, 0px));
+    width: calc(100vw - 20px);
+    max-height: 46svh;
+    grid-template-columns: 1fr;
+    padding: 10px;
+    overflow-y: auto;
+    transform: translateX(-50%);
+  }
+
+  .hero-map-interactive.district-detail-active .map-detail[data-value-tier] .map-back-button {
+    position: absolute;
+    top: 8px;
+    left: 8px;
+    width: 44px;
+    min-height: 44px;
+    justify-content: center;
+    padding: 0;
+    font-size: 0;
+  }
+
+  .hero-map-interactive.district-detail-active .map-detail[data-value-tier] .map-back-button i {
+    font-size: 14px;
+  }
+
+  .hero-map-interactive.district-detail-active .map-detail[data-value-tier] .map-detail-copy {
+    grid-column: 1 / -1;
+    min-height: 44px;
+    padding-right: 148px;
+    padding-left: 48px;
+  }
+
+  .hero-map-interactive.district-detail-active .map-detail[data-value-tier] .community-stepper {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+  }
+
   .community-stepper {
     grid-template-columns: 44px minmax(54px, auto) 44px;
   }
@@ -5404,6 +5616,26 @@ main {
   .community-stepper button {
     width: 44px;
     height: 44px;
+  }
+
+  .community-local-map > span {
+    right: 8px;
+    bottom: 8px;
+    font-size: 8px;
+  }
+
+  .community-location-metrics {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .community-location-metrics a {
+    grid-column: 1 / -1;
+    min-height: 44px;
+  }
+
+  .nearby-community-list,
+  .community-location-context p {
+    display: none;
   }
 
   .hero.reference-hero .capability-card,
@@ -5762,6 +5994,21 @@ main {
 
   .map-value-legend > div:first-child {
     gap: 8px;
+  }
+
+  .district-detail-active .map-value-legend {
+    width: min(290px, calc(100vw - 36px));
+  }
+
+  .district-detail-active .map-value-legend > div:first-child small {
+    max-width: 190px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .district-detail-active .map-value-legend .value-filter-row {
+    display: none;
   }
 
   .community-data-row {
