@@ -1,9 +1,13 @@
 import * as THREE from 'three'
 import {
   calculatePurchaseValue,
+  communityValueSamples,
   getCommunitySamples,
   getPurchaseValueTier,
+  parseCommunityValueDataset,
   purchaseValueBands,
+  resolveCommunityPosition,
+  type CommunityValueDataset,
   type CommunityValueSample,
   type DistrictKey,
   type PurchaseValueTier,
@@ -33,6 +37,23 @@ const districts: Record<DistrictKey, DistrictInfo> = {
 }
 
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value))
+const escapeHtml = (value: string) => value.replace(/[&<>'"]/g, (character) => ({
+  '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;',
+})[character]!)
+
+const tierColour: Record<PurchaseValueTier, string> = {
+  strong: '#147a5d',
+  watch: '#a66b16',
+  cautious: '#b44b59',
+}
+
+type CommunityDot = {
+  sample: CommunityValueSample
+  score: number
+  tier: PurchaseValueTier
+  x: number
+  y: number
+}
 
 export async function initHeroMap3d(host: HTMLElement) {
   const canvas = host.querySelector<HTMLCanvasElement>('#heroMapCanvas')
@@ -45,7 +66,11 @@ export async function initHeroMap3d(host: HTMLElement) {
   const resetButton = host.querySelector<HTMLButtonElement>('#resetMapView')
   const interactionHint = host.querySelector<HTMLElement>('#mapInteractionHint')
   const communityLayer = host.querySelector<HTMLElement>('#communityValueLayer')
+  const communityDots = host.querySelector<HTMLCanvasElement>('#communityValueDots')
   const valueLegend = host.querySelector<HTMLElement>('#mapValueLegend')
+  const dataMode = host.querySelector<HTMLElement>('#mapDataMode')
+  const dataFile = host.querySelector<HTMLInputElement>('#communityDataFile')
+  const dataImportStatus = host.querySelector<HTMLElement>('#communityDataStatus')
   const textureUrl = host.dataset.texture
 
   if (!canvas || !textureUrl || !window.WebGLRenderingContext) {
@@ -86,6 +111,16 @@ export async function initHeroMap3d(host: HTMLElement) {
   let activeDistrict: DistrictKey | null = null
   let activeCommunityId: string | null = null
   let activeValueFilter: ValueFilter = 'all'
+  let activeCommunities = communityValueSamples
+  let activeDataset: CommunityValueDataset = {
+    version: 1,
+    label: '示例模型',
+    updatedAt: '非实时成交',
+    sourceName: '项目内置演示数据',
+    communities: communityValueSamples,
+  }
+  let renderedDots: CommunityDot[] = []
+  let redrawCommunityLayer = () => undefined
 
   const render = (time = performance.now()) => {
     if (disposed) return
@@ -118,6 +153,7 @@ export async function initHeroMap3d(host: HTMLElement) {
     camera.aspect = width / height
     camera.position.z = width < 560 ? 14.6 : width < 900 ? 13.9 : 13.2
     camera.updateProjectionMatrix()
+    redrawCommunityLayer()
     render()
   }
   const resizeObserver = new ResizeObserver(resize)
@@ -189,26 +225,120 @@ export async function initHeroMap3d(host: HTMLElement) {
     })
   }
 
-  const renderCommunityMarkers = (key: DistrictKey) => {
-    if (!communityLayer) return
-    const samples = getCommunitySamples(key)
-      .map((sample) => ({ sample, score: calculatePurchaseValue(sample) }))
-      .sort((a, b) => b.score - a.score)
+  const getVisibleCommunityScores = (key: DistrictKey) => getCommunitySamples(key, activeCommunities)
+    .map((sample) => {
+      const score = calculatePurchaseValue(sample)
+      return { sample, score, tier: getPurchaseValueTier(score), position: resolveCommunityPosition(sample) }
+    })
+    .filter(({ tier }) => activeValueFilter === 'all' || activeValueFilter === tier)
+    .sort((a, b) => b.score - a.score)
 
-    communityLayer.innerHTML = samples.map(({ sample, score }, index) => {
-      const tier = getPurchaseValueTier(score)
-      const hidden = activeValueFilter !== 'all' && activeValueFilter !== tier
+  const drawCommunityDots = (key: DistrictKey) => {
+    if (!communityDots) return
+    const rect = communityDots.getBoundingClientRect()
+    const width = Math.max(rect.width, 1)
+    const height = Math.max(rect.height, 1)
+    const pixelRatio = Math.min(window.devicePixelRatio, 2)
+    const expectedWidth = Math.round(width * pixelRatio)
+    const expectedHeight = Math.round(height * pixelRatio)
+    if (communityDots.width !== expectedWidth || communityDots.height !== expectedHeight) {
+      communityDots.width = expectedWidth
+      communityDots.height = expectedHeight
+    }
+    const context = communityDots.getContext('2d')
+    if (!context) return
+    context.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0)
+    context.clearRect(0, 0, width, height)
+
+    const records = getVisibleCommunityScores(key)
+    const radius = records.length > 1_000 ? 2.2 : records.length > 200 ? 2.8 : 3.8
+    renderedDots = records.map(({ sample, score, tier, position }) => ({
+      sample,
+      score,
+      tier,
+      x: position.x / 100 * width,
+      y: position.y / 100 * height,
+    }))
+
+    renderedDots.forEach((dot) => {
+      const selected = dot.sample.id === activeCommunityId
+      context.beginPath()
+      context.arc(dot.x, dot.y, selected ? radius + 5 : radius + 2.5, 0, Math.PI * 2)
+      context.fillStyle = selected ? 'rgba(255,255,255,0.94)' : 'rgba(255,255,255,0.62)'
+      context.fill()
+      context.beginPath()
+      context.arc(dot.x, dot.y, selected ? radius + 1.5 : radius, 0, Math.PI * 2)
+      context.fillStyle = tierColour[dot.tier]
+      context.globalAlpha = selected ? 1 : 0.9
+      context.fill()
+      context.globalAlpha = 1
+      if (selected) {
+        context.strokeStyle = tierColour[dot.tier]
+        context.lineWidth = 1.5
+        context.stroke()
+      }
+    })
+    communityDots.hidden = false
+  }
+
+  const chooseLabelledCommunities = (key: DistrictKey) => {
+    const records = getVisibleCommunityScores(key)
+    const limit = host.clientWidth < 600 ? 6 : host.clientWidth < 900 ? 10 : 18
+    const selected = activeCommunityId ? records.find(({ sample }) => sample.id === activeCommunityId) : undefined
+    const candidates = selected ? [selected, ...records.filter(({ sample }) => sample.id !== selected.sample.id)] : records
+    const hostRect = host.getBoundingClientRect()
+    const markerWidth = host.clientWidth < 600 ? 98 : 126
+    const markerHeight = host.clientWidth < 600 ? 40 : 48
+    const reserved = [valueLegend, status, host.querySelector('.map-label.active'), host.querySelector('.map-controls')]
+      .map((element) => element?.getBoundingClientRect())
+      .filter((rect): rect is DOMRect => Boolean(rect?.width && rect?.height))
+    const labelledRects: Array<{ left: number; right: number; top: number; bottom: number }> = []
+    return candidates.reduce<typeof records>((labels, record) => {
+      if (labels.length >= limit) return labels
+      const centreX = hostRect.left + record.position.x / 100 * hostRect.width
+      const centreY = hostRect.top + record.position.y / 100 * hostRect.height
+      const markerRect = {
+        left: centreX - markerWidth / 2,
+        right: centreX + markerWidth / 2,
+        top: centreY - markerHeight / 2,
+        bottom: centreY + markerHeight / 2,
+      }
+      const overlaps = (other: { left: number; right: number; top: number; bottom: number }) => (
+        markerRect.left < other.right + 4
+        && markerRect.right > other.left - 4
+        && markerRect.top < other.bottom + 4
+        && markerRect.bottom > other.top - 4
+      )
+      if (!reserved.some(overlaps) && !labelledRects.some(overlaps)) {
+        labels.push(record)
+        labelledRects.push(markerRect)
+      }
+      return labels
+    }, [])
+  }
+
+  const renderCommunityMarkers = (key: DistrictKey) => {
+    drawCommunityDots(key)
+    if (!communityLayer) return
+    if (valueLegend) valueLegend.hidden = false
+    const samples = chooseLabelledCommunities(key)
+    communityLayer.innerHTML = samples.map(({ sample, score, tier, position }, index) => {
       const selected = activeCommunityId === sample.id
-      return `<button class="community-value-marker tier-${tier}${selected ? ' active' : ''}" type="button" data-community-id="${sample.id}" style="--marker-x:${sample.position.x}%;--marker-y:${sample.position.y}%;--marker-order:${index}" aria-label="${sample.name}，购买价值${score}分，${purchaseValueBands[tier].label}" aria-pressed="${selected}"${hidden ? ' hidden' : ''}><span class="community-score">${score}</span><span class="community-marker-copy"><b>${sample.name}</b><small>同质折价 ${sample.adjustedDiscount >= 0 ? '+' : ''}${sample.adjustedDiscount.toFixed(1)}%</small></span></button>`
+      const id = escapeHtml(sample.id)
+      const name = escapeHtml(sample.name)
+      return `<button class="community-value-marker tier-${tier}${selected ? ' active' : ''}" type="button" data-community-id="${id}" style="--marker-x:${position.x}%;--marker-y:${position.y}%;--marker-order:${index}" aria-label="${name}，购买价值${score}分，${purchaseValueBands[tier].label}" aria-pressed="${selected}"><span class="community-score">${score}</span><span class="community-marker-copy"><b>${name}</b><small>同质折价 ${sample.adjustedDiscount >= 0 ? '+' : ''}${sample.adjustedDiscount.toFixed(1)}%</small></span></button>`
     }).join('')
     communityLayer.hidden = false
-    if (valueLegend) valueLegend.hidden = false
     updateLegendState()
+  }
+
+  redrawCommunityLayer = () => {
+    if (activeDistrict) renderCommunityMarkers(activeDistrict)
   }
 
   const showDistrictSummary = (key: DistrictKey) => {
     const info = districts[key]
-    const samples = getCommunitySamples(key)
+    const samples = getCommunitySamples(key, activeCommunities)
     const scores = samples.map(calculatePurchaseValue)
     const average = Math.round(scores.reduce((total, score) => total + score, 0) / Math.max(scores.length, 1))
     const strongCount = scores.filter((score) => getPurchaseValueTier(score) === 'strong').length
@@ -217,10 +347,10 @@ export async function initHeroMap3d(host: HTMLElement) {
       status.setAttribute('aria-label', `已进入${info.name}小区价值地图`)
     }
     if (statusTitle) statusTitle.innerHTML = `${info.name} · 小区价值<em>${average}分</em>`
-    if (statusSummary) statusSummary.textContent = '点击彩色小区标记，查看质量、同质折价和成交样本。'
+    if (statusSummary) statusSummary.textContent = '所有小区均以颜色点位显示；重点候选显示名称，点击点位可查看明细。'
     if (statusStats) {
       statusStats.hidden = false
-      statusStats.innerHTML = `<span><small>示例小区</small><b>${samples.length} 个</b></span><span><small>优先核验</small><b>${strongCount} 个</b></span><span><small>数据口径</small><b>演示模型 · 非实时</b></span>`
+      statusStats.innerHTML = `<span><small>已加载小区</small><b>${samples.length.toLocaleString('zh-CN')} 个</b></span><span><small>优先核验</small><b>${strongCount.toLocaleString('zh-CN')} 个</b></span><span><small>数据来源</small><b>${escapeHtml(activeDataset.sourceName)}</b></span>`
     }
   }
 
@@ -237,12 +367,13 @@ export async function initHeroMap3d(host: HTMLElement) {
       status.dataset.valueTier = tier
       status.setAttribute('aria-label', `${sample.name}购买价值详情`)
     }
-    if (statusTitle) statusTitle.innerHTML = `${sample.name}<em>${score}分 · ${purchaseValueBands[tier].label}</em>`
+    if (statusTitle) statusTitle.innerHTML = `${escapeHtml(sample.name)}<em>${score}分 · ${purchaseValueBands[tier].label}</em>`
     if (statusSummary) statusSummary.textContent = `${sample.zone} · 重点核验：${sample.watch}`
     if (statusStats) {
       statusStats.hidden = false
       statusStats.innerHTML = `<span><small>优质小区分</small><b>${sample.qualityScore} / 100</b></span><span><small>同质可比折价</small><b>${sample.adjustedDiscount >= 0 ? '+' : ''}${sample.adjustedDiscount.toFixed(1)}%</b></span><span><small>180天成交 / 可比样本</small><b>${sample.transactions180d} / ${sample.comparableSamples} 套</b></span>`
     }
+    renderCommunityMarkers(sample.district)
   }
 
   const selectDistrict = (key: DistrictKey) => {
@@ -272,18 +403,31 @@ export async function initHeroMap3d(host: HTMLElement) {
   }
 
   const onMapClick = (event: Event) => {
+    if (drag.moved) return
     const targetElement = event.target as HTMLElement
     const communityButton = targetElement.closest<HTMLButtonElement>('[data-community-id]')
     if (communityButton && activeDistrict) {
-      const sample = getCommunitySamples(activeDistrict).find((item) => item.id === communityButton.dataset.communityId)
+      const sample = getCommunitySamples(activeDistrict, activeCommunities).find((item) => item.id === communityButton.dataset.communityId)
       if (sample) selectCommunity(sample)
+      return
+    }
+    if (targetElement === communityDots && activeDistrict) {
+      const pointerEvent = event as PointerEvent
+      const rect = communityDots.getBoundingClientRect()
+      const x = pointerEvent.clientX - rect.left
+      const y = pointerEvent.clientY - rect.top
+      const closest = renderedDots.reduce<{ dot: CommunityDot; distance: number } | null>((result, dot) => {
+        const distance = Math.hypot(dot.x - x, dot.y - y)
+        return !result || distance < result.distance ? { dot, distance } : result
+      }, null)
+      if (closest && closest.distance <= 15) selectCommunity(closest.dot.sample)
       return
     }
     const filterButton = targetElement.closest<HTMLButtonElement>('[data-value-filter]')
     if (filterButton && activeDistrict) {
       activeValueFilter = filterButton.dataset.valueFilter as ValueFilter
       const selectedSample = activeCommunityId
-        ? getCommunitySamples(activeDistrict).find((sample) => sample.id === activeCommunityId)
+        ? getCommunitySamples(activeDistrict, activeCommunities).find((sample) => sample.id === activeCommunityId)
         : undefined
       if (selectedSample && activeValueFilter !== 'all' && getPurchaseValueTier(calculatePurchaseValue(selectedSample)) !== activeValueFilter) {
         activeCommunityId = null
@@ -295,6 +439,30 @@ export async function initHeroMap3d(host: HTMLElement) {
     const districtButton = targetElement.closest<HTMLButtonElement>('[data-map-district]')
     if (districtButton) selectDistrict(districtButton.dataset.mapDistrict as DistrictKey)
   }
+
+  const importCommunityData = async () => {
+    const file = dataFile?.files?.[0]
+    if (!file) return
+    if (dataImportStatus) dataImportStatus.textContent = '正在校验…'
+    try {
+      const dataset = parseCommunityValueDataset(JSON.parse(await file.text()))
+      activeDataset = dataset
+      activeCommunities = dataset.communities
+      activeCommunityId = null
+      activeValueFilter = 'all'
+      if (dataMode) dataMode.textContent = `${dataset.label} · ${dataset.communities.length.toLocaleString('zh-CN')} 个`
+      if (dataImportStatus) dataImportStatus.textContent = '已在本地加载，不会上传'
+      if (activeDistrict) {
+        renderCommunityMarkers(activeDistrict)
+        showDistrictSummary(activeDistrict)
+      }
+    } catch (error) {
+      if (dataImportStatus) dataImportStatus.textContent = error instanceof Error ? `导入失败：${error.message}` : '导入失败：文件格式错误'
+    } finally {
+      if (dataFile) dataFile.value = ''
+    }
+  }
+
   const reset = () => {
     activeDistrict = null
     activeCommunityId = null
@@ -323,6 +491,11 @@ export async function initHeroMap3d(host: HTMLElement) {
       exitButton.setAttribute('aria-hidden', 'true')
     }
     if (communityLayer) { communityLayer.hidden = true; communityLayer.innerHTML = '' }
+    if (communityDots) {
+      communityDots.hidden = true
+      communityDots.getContext('2d')?.clearRect(0, 0, communityDots.width, communityDots.height)
+    }
+    renderedDots = []
     if (valueLegend) valueLegend.hidden = true
     if (interactionHint) interactionHint.innerHTML = '<i class="ph ph-cursor-click"></i> 点击区县进入详情 · 拖拽旋转'
   }
@@ -336,6 +509,7 @@ export async function initHeroMap3d(host: HTMLElement) {
   host.addEventListener('click', onMapClick)
   resetButton?.addEventListener('click', reset)
   exitButton?.addEventListener('click', reset)
+  dataFile?.addEventListener('change', importCommunityData)
 
   const intersectionObserver = new IntersectionObserver(([entry]) => {
     visible = entry.isIntersecting
@@ -365,6 +539,7 @@ export async function initHeroMap3d(host: HTMLElement) {
     host.removeEventListener('click', onMapClick)
     resetButton?.removeEventListener('click', reset)
     exitButton?.removeEventListener('click', reset)
+    dataFile?.removeEventListener('change', importCommunityData)
     map.geometry.dispose()
     ;(map.material as THREE.Material).dispose()
     texture.dispose()

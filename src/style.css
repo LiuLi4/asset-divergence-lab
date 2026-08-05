@@ -5363,6 +5363,15 @@ main {
   pointer-events: none;
 }
 
+.hero.reference-hero .hero-map-visual canvas.community-value-dots {
+  z-index: 4;
+  object-fit: fill;
+  filter: none;
+  cursor: crosshair;
+  pointer-events: auto;
+}
+
+.community-value-dots[hidden],
 .community-value-layer[hidden],
 .map-value-legend[hidden] {
   display: none;
@@ -5492,6 +5501,50 @@ main {
   font-size: 8px;
 }
 
+.community-data-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 3px 7px;
+  padding-top: 1px;
+}
+
+.community-data-row label {
+  display: inline-flex;
+  min-height: 25px;
+  align-items: center;
+  gap: 4px;
+  padding: 0 8px;
+  border: 1px solid rgba(43, 22, 73, 0.14);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.62);
+  color: var(--hero-ink);
+  font-size: 8px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.community-data-row label:hover,
+.community-data-row label:focus-within {
+  border-color: rgba(43, 22, 73, 0.36);
+  background: #fff;
+}
+
+.community-data-row input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.community-data-row small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .value-filter-row {
   display: flex;
   gap: 4px;
@@ -5580,14 +5633,18 @@ main {
 @media (max-width: 600px) {
   .map-value-legend {
     top: 3%;
-    right: 18%;
-    left: 18%;
+    right: 12%;
+    left: 12%;
     gap: 5px;
     padding: 8px 9px;
   }
 
   .map-value-legend > div:first-child {
     gap: 8px;
+  }
+
+  .community-data-row {
+    display: none;
   }
 
   .value-filter-row {

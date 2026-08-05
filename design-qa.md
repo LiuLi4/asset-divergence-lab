@@ -37,6 +37,8 @@
 - Mobile Haidian state shows all four markers and the full three-band legend. Geometry audit returned zero legend/marker overlaps, zero detail/marker overlaps, and no horizontal page overflow.
 - Interaction checks passed: entering a district, selecting a community, filtering to `65–79` (two Fengtai results), returning to Beijing overview, and keyboard Escape reset.
 - Final production-preview console check returned no errors or warnings.
+- Full-data stress state imported 5,000 locally generated records and rendered 714 Fengtai points on one canvas. Desktop retained 10 collision-free labels; mobile retained 6. Geometry audits returned zero label-pair, legend/label, detail/label, detail/capability overlaps and no horizontal overflow.
+- Invalid-import state rejected an empty `communities` array, kept the previously loaded 5,000-record dataset active, and exposed the validation error beside the importer.
 
 ## Comparison history
 
@@ -52,5 +54,7 @@
 - [x] District-to-community drill-down and click detail
 - [x] Desktop and mobile non-overlap repairs
 - [x] Unit tests, production build, interaction checks, and console check
+- [x] Canvas 全量点位层与防碰撞重点标签
+- [x] 最多 50,000 条本地 JSON 导入、校验和来源状态
 
 final result: passed

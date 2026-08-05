@@ -8,6 +8,7 @@
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview",
+    "data:build": "node scripts/build-community-values.mjs",
     "test": "vitest run",
     "check": "npm run test && npm run build"
   },
