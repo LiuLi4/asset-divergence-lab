@@ -1,61 +1,59 @@
-# Design QA — Beijing community purchase-value map
+# Design QA — continuous homepage and full-screen map workspace
 
-- Source visual truth: `/var/folders/0p/54xxdchs59x4m72kldrw_x1c0000gn/T/codex-clipboard-5328ae31-3931-4aa9-bf74-07cfc2ecd496.png`
-- Normalized source frame: `/tmp/asset-divergence-map-source-normalized.png`
-- Desktop implementation: `/tmp/asset-divergence-community-desktop-final.png`
-- Mobile implementation: `/tmp/asset-divergence-community-mobile-final.png`
-- Same-input comparison: `/tmp/asset-divergence-community-source-vs-final.jpg`
-- Prototype: `http://127.0.0.1:4173/?preview=community-value#top`
-- Desktop CSS viewport: `1280 × 720`; browser-rendered screenshot: `1265 × 712`
-- Mobile CSS viewport: `390 × 844`; browser-rendered screenshot: `375 × 812`
-- Source pixels: `1665 × 993` after removing browser chrome
-- Density normalization: the source was width-normalized and center-cropped to `1280 × 720`; the desktop implementation was normalized to the same dimensions before horizontal comparison. Device scale factor remained at the browser default.
-- States: Beijing overview, Fengtai community-value detail with selected community, score-band filtering, and mobile Haidian community-value detail.
+- Source visual truth: `/var/folders/0p/54xxdchs59x4m72kldrw_x1c0000gn/T/codex-clipboard-634898e8-c745-43e0-90e6-411466fa3bd0.png`
+- Desktop homepage implementation: `/tmp/asset-divergence-home-continuous-1440x900.png`
+- Desktop map workspace: `/tmp/asset-divergence-map-workspace-desktop-1440x900.png`
+- Mobile district workspace: `/tmp/asset-divergence-map-workspace-mobile-390x844-v2.png`
+- Mobile community workspace: `/tmp/asset-divergence-community-map-mobile-390x844.png`
+- Same-input comparison: `/tmp/asset-divergence-design-comparison.png`
+- Prototype: `http://127.0.0.1:5173/?preview=fullscreen-map#top`
+- Desktop CSS viewport and screenshot: `1440 × 900`, browser density `1x`
+- Mobile CSS viewport and screenshot: `390 × 844`, browser density `1x`
+- Source pixels: `2564 × 1724`; browser chrome was removed before proportional normalization into the `720 × 450` left comparison frame.
+- State: Beijing homepage overview, full-screen Xicheng district, mobile district points, and selected-community OpenStreetMap context.
 
 ## Findings
 
-- No actionable P0, P1, or P2 differences remain for the requested community purchase-value layer.
-- The new coloured value markers intentionally extend the source visual; the underlying map asset, hero composition, typography, background, capability row, and interaction language remain consistent with the selected design.
+- No actionable P0, P1, or P2 issues remain for the requested background continuity and map-page transition.
+- The map workspace intentionally extends beyond the source screenshot because the selected source documents the homepage problem state; its interaction target is defined by the user's requirement to dedicate the complete viewport to the map after a click.
 
 ## Required fidelity surfaces
 
-- Fonts and typography: passed. The existing Manrope / Noto Sans SC hierarchy is unchanged. Marker names use a compact UI weight, while the numerical score remains the first visual read. No desktop or mobile label wraps outside its marker.
-- Spacing and layout rhythm: passed. At `1280 × 720`, the selected-community card ends at `642.88px` and the capability row begins at `648px`; they do not overlap. All four community markers are clear of the legend and detail card. At `390 × 844`, the legend, four markers, detail card, and capability row remain inside the visible page with no horizontal overflow or pairwise overlap.
-- Colors and visual tokens: passed. Purchase value uses three explicit semantic bands: green `80–100`, amber `65–79`, and rose `0–64`. The colours are repeated in the legend, score circle, selected detail accent, and accessible button label, so meaning does not rely on colour alone.
-- Image quality and asset fidelity: passed. The supplied transparent Beijing map remains the only map texture and keeps its source ratio. The value layer is normal interface chrome over the existing WebGL map; no substitute illustration or redrawn map asset was introduced.
-- Copy and content: passed. The interface distinguishes “购买价值” from district price movement, exposes quality score, adjusted comparable discount, 180-day transactions, and comparable-sample count, and labels all bundled records as `示例模型 · 非实时成交`.
+- Fonts and typography: passed. Existing Manrope / Noto Sans SC hierarchy and weights remain unchanged on the homepage. Full-screen controls reuse the established compact interface typography and do not introduce a competing display style.
+- Spacing and layout rhythm: passed. The comparison image confirms that the marked empty blocks at the bottom of the reference no longer create separate visual surfaces. The homepage remains a single `100svh` composition. The full-screen map measures exactly `1440 × 900` and `390 × 844`; desktop and mobile controls stay inside the viewport without horizontal overflow.
+- Colors and visual tokens: passed. One body-level blush gradient now continues behind the hero and later sections. Sections are transparent instead of restarting their own backgrounds. Map controls reuse the aubergine, translucent paper, green, amber and rose tokens already present in the product.
+- Image quality and asset fidelity: passed. The existing Beijing WebGL/raster map remains the only city map asset and keeps its proportions. Community context uses the existing OpenStreetMap iframe. No replacement illustration, CSS drawing or placeholder imagery was introduced.
+- Copy and content: passed. The new persistent control says “返回首页”; the existing “北京全图” control continues to mean reset from district to city overview, so the two navigation levels remain distinct.
+- Icons and accessibility: passed. All controls use the existing Phosphor icon family. The full-screen workspace exposes a dialog role, locks background scrolling, provides a visible 44px mobile return target, supports Escape unwinding from community to district to overview to homepage, and restores the prior scroll position.
 
 ## Full-view comparison evidence
 
-- `/tmp/asset-divergence-community-source-vs-final.jpg` places the normalized source and implementation in one comparison image.
-- The implementation retains the source's left editorial statement, enlarged right-side Beijing map, aubergine navigation and CTA, and three equal capability cells.
-- The new legend occupies unused map airspace, while the selected-community detail reuses the existing map information surface instead of adding an overlapping card stack.
+- `/tmp/asset-divergence-design-comparison.png` places the normalized source on the left and the revised homepage on the right.
+- The headline, map asset, district labels, navigation and primary CTA retain their original hierarchy.
+- The revised view removes the boxed-looking lower gaps and lets one background treatment continue through the complete first screen.
 
 ## Focused region evidence
 
-- Desktop Fengtai state shows four simultaneously visible scores across all three bands and a selected value card for 西府颐园: value `82`, quality `84`, adjusted discount `+10.2%`, and samples `8 / 12`.
-- Mobile Haidian state shows all four markers and the full three-band legend. Geometry audit returned zero legend/marker overlaps, zero detail/marker overlaps, and no horizontal page overflow.
-- Interaction checks passed: entering a district, selecting a community, filtering to `65–79` (two Fengtai results), returning to Beijing overview, and keyboard Escape reset.
-- Final production-preview console check returned no errors or warnings.
-- Full-data stress state imported 5,000 locally generated records and rendered 714 Fengtai points on one canvas. Desktop retained 10 collision-free labels; mobile retained 6. Geometry audits returned zero label-pair, legend/label, detail/label, detail/capability overlaps and no horizontal overflow.
-- Invalid-import state rejected an empty `communities` array, kept the previously loaded 5,000-record dataset active, and exposed the validation error beside the importer.
-- Licensed-data-shaped audit imported 2,701 locally converted community records, including 454 Fengtai value points. Selecting 鼎恒中心 exposed score `83`, latest transaction `3.0万/㎡`, nearby homogeneous median `4.7万/㎡`, adjusted discount `+30.0%`, and evidence counts `3 / 38`; the audit data itself was not committed because its repository has no declared data license.
+- Separate focused crops were unnecessary for the homepage because the requested change is a full-view surface and state transition, not a small typography or icon fidelity adjustment.
+- Full-screen evidence covers the relevant focused interaction surfaces: desktop map controls and detail panel, mobile return/reset controls, the mobile district detail sheet, and the selected-community location map.
+- Browser geometry confirms a `0,0,1440,900` desktop map and `0,0,390,844` mobile map, with `0px` horizontal overflow.
 
 ## Comparison history
 
-1. Initial mobile capture found a P1 interaction regression: the overview information card covered the horizontally scrollable district choices. The mobile bottom-position override was restricted to district-detail state; post-fix district selection succeeds and the overview choices are no longer occluded.
-2. Initial `1280 × 720` desktop capture found a P1 overlap between the selected-community detail card and the capability row. A low-height desktop layout rule moved the capability row to the bottom edge; post-fix geometry reports `detailCapabilityOverlap: false`.
-3. Post-fix desktop and mobile captures found no further P0/P1/P2 issues. The production preview has four visible community markers per selected district, working value-band filters, zero audited card/marker overlap, and no console errors.
+1. Initial mobile workspace capture found a P1 stacking defect: the calculator heading remained visible above the fixed map because the map was still inside the hero stacking context.
+2. The map host is now temporarily mounted directly under `body` while the workspace is open, then restored to its original DOM position on exit. The post-fix mobile capture shows only the map workspace and its own controls.
+3. The first post-fix mobile capture left the return control too quiet against the pale map background (P2). Its mobile state now uses the established aubergine fill and white icon; computed size is `44 × 44px`.
+4. Post-fix desktop and mobile checks found no remaining P0/P1/P2 issue. District entry, community navigation, real-coordinate map loading, Escape navigation, explicit return, scroll restoration and console checks pass.
 
 ## Implementation checklist
 
-- [x] Community data contract and transparent score formula
-- [x] Quality gate prevents discount from overriding weak fundamentals
-- [x] Three colour-coded score bands and filter controls
-- [x] District-to-community drill-down and click detail
-- [x] Desktop and mobile non-overlap repairs
-- [x] Unit tests, production build, interaction checks, and console check
-- [x] Canvas 全量点位层与防碰撞重点标签
-- [x] 最多 50,000 条本地 JSON 导入、校验和来源状态
+- [x] Single continuous page-level background
+- [x] Click district to enter a true full-viewport map workspace
+- [x] Click the map background or press Enter/Space to open the Beijing overview workspace
+- [x] Separate “北京全图” and “返回首页” navigation levels
+- [x] Desktop and mobile viewport coverage without background bleed-through
+- [x] Community OpenStreetMap mode remains full-screen
+- [x] Keyboard Escape and restored page scroll position
+- [x] Automated tests, TypeScript build, responsive browser checks and console review
 
 final result: passed

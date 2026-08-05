@@ -85,6 +85,7 @@ export async function initHeroMap3d(host: HTMLElement) {
   const statusSummary = host.querySelector<HTMLElement>('#mapDistrictSummary')
   const statusStats = host.querySelector<HTMLElement>('#mapDistrictStats')
   const exitButton = host.querySelector<HTMLButtonElement>('#exitDistrictMap')
+  const workspaceExitButton = host.querySelector<HTMLButtonElement>('#exitMapWorkspace')
   const resetButton = host.querySelector<HTMLButtonElement>('#resetMapView')
   const interactionHint = host.querySelector<HTMLElement>('#mapInteractionHint')
   const communityLayer = host.querySelector<HTMLElement>('#communityValueLayer')
@@ -95,6 +96,56 @@ export async function initHeroMap3d(host: HTMLElement) {
   const dataImportStatus = host.querySelector<HTMLElement>('#communityDataStatus')
   const textureUrl = host.dataset.texture
   const communityDataUrl = host.dataset.communityValues
+  let pageScrollY = 0
+  let mapWorkspaceAnchor: Comment | null = null
+
+  const enterMapWorkspace = () => {
+    if (host.classList.contains('map-workspace-active')) return
+    pageScrollY = window.scrollY
+    mapWorkspaceAnchor = document.createComment('map-workspace-anchor')
+    host.parentNode?.insertBefore(mapWorkspaceAnchor, host)
+    document.body.append(host)
+    document.documentElement.classList.add('map-workspace-open')
+    document.body.classList.add('map-workspace-open')
+    host.classList.add('map-workspace-active')
+    host.setAttribute('role', 'dialog')
+    host.setAttribute('aria-modal', 'true')
+    host.setAttribute('aria-label', '北京小区价值全屏地图')
+    if (workspaceExitButton) {
+      workspaceExitButton.hidden = false
+      workspaceExitButton.setAttribute('aria-hidden', 'false')
+    }
+    requestAnimationFrame(() => {
+      resize()
+      start()
+      host.focus({ preventScroll: true })
+    })
+  }
+
+  const exitMapWorkspace = () => {
+    if (!host.classList.contains('map-workspace-active')) return
+    reset()
+    host.classList.remove('map-workspace-active')
+    host.removeAttribute('role')
+    host.removeAttribute('aria-modal')
+    host.setAttribute('aria-label', '可交互的北京核心区三维地图')
+    if (mapWorkspaceAnchor?.parentNode) {
+      mapWorkspaceAnchor.parentNode.insertBefore(host, mapWorkspaceAnchor)
+      mapWorkspaceAnchor.remove()
+      mapWorkspaceAnchor = null
+    }
+    document.documentElement.classList.remove('map-workspace-open')
+    document.body.classList.remove('map-workspace-open')
+    if (workspaceExitButton) {
+      workspaceExitButton.hidden = true
+      workspaceExitButton.setAttribute('aria-hidden', 'true')
+    }
+    requestAnimationFrame(() => {
+      resize()
+      window.scrollTo({ top: pageScrollY, behavior: 'instant' })
+      host.focus({ preventScroll: true })
+    })
+  }
 
   const localMap = document.createElement('section')
   localMap.className = 'community-local-map'
@@ -266,15 +317,22 @@ export async function initHeroMap3d(host: HTMLElement) {
     }
   }
   const onKeyDown = (event: KeyboardEvent) => {
-    if (event.key === 'Escape' && host.classList.contains('district-detail-active')) {
+    if (event.key === 'Escape' && host.classList.contains('map-workspace-active')) {
       if (activeCommunityId && activeDistrict) {
         activeCommunityId = null
         renderCommunityMarkers(activeDistrict)
         showDistrictSummary(activeDistrict)
-      } else {
+      } else if (host.classList.contains('district-detail-active')) {
         reset()
         host.focus()
+      } else {
+        exitMapWorkspace()
       }
+      event.preventDefault()
+      return
+    }
+    if ((event.key === 'Enter' || event.key === ' ') && !host.classList.contains('map-workspace-active')) {
+      enterMapWorkspace()
       event.preventDefault()
       return
     }
@@ -508,6 +566,7 @@ export async function initHeroMap3d(host: HTMLElement) {
   }
 
   const selectDistrict = (key: DistrictKey) => {
+    enterMapWorkspace()
     const info = districts[key]
     activeDistrict = key
     activeCommunityId = null
@@ -536,6 +595,7 @@ export async function initHeroMap3d(host: HTMLElement) {
   const onMapClick = (event: Event) => {
     if (drag.moved) return
     const targetElement = event.target as HTMLElement
+    if (targetElement.closest('#exitMapWorkspace')) return
     const navigationButton = targetElement.closest<HTMLButtonElement>('[data-community-direction]')
     if (navigationButton) {
       navigateCommunity(navigationButton.dataset.communityDirection as CommunityNavigationDirection)
@@ -573,7 +633,11 @@ export async function initHeroMap3d(host: HTMLElement) {
       return
     }
     const districtButton = targetElement.closest<HTMLButtonElement>('[data-map-district]')
-    if (districtButton) selectDistrict(districtButton.dataset.mapDistrict as DistrictKey)
+    if (districtButton) {
+      selectDistrict(districtButton.dataset.mapDistrict as DistrictKey)
+      return
+    }
+    if (!host.classList.contains('map-workspace-active')) enterMapWorkspace()
   }
 
   const importCommunityData = async () => {
@@ -678,6 +742,7 @@ export async function initHeroMap3d(host: HTMLElement) {
   host.addEventListener('click', onMapClick)
   resetButton?.addEventListener('click', reset)
   exitButton?.addEventListener('click', reset)
+  workspaceExitButton?.addEventListener('click', exitMapWorkspace)
   dataFile?.addEventListener('change', importCommunityData)
   void loadDefaultCommunityData()
 
@@ -728,6 +793,14 @@ export async function initHeroMap3d(host: HTMLElement) {
     host.removeEventListener('click', onMapClick)
     resetButton?.removeEventListener('click', reset)
     exitButton?.removeEventListener('click', reset)
+    workspaceExitButton?.removeEventListener('click', exitMapWorkspace)
+    document.documentElement.classList.remove('map-workspace-open')
+    document.body.classList.remove('map-workspace-open')
+    if (mapWorkspaceAnchor?.parentNode) {
+      mapWorkspaceAnchor.parentNode.insertBefore(host, mapWorkspaceAnchor)
+      mapWorkspaceAnchor.remove()
+      mapWorkspaceAnchor = null
+    }
     dataFile?.removeEventListener('change', importCommunityData)
     map.geometry.dispose()
     ;(map.material as THREE.Material).dispose()

@@ -6116,3 +6116,203 @@ main {
     bottom: 4%;
   }
 }
+
+/* Continuous canvas and dedicated full-screen map workspace */
+body {
+  background:
+    radial-gradient(circle at 78% 8%, rgba(255, 255, 255, 0.72), transparent 30%),
+    linear-gradient(135deg, #f7f0f9 0%, #f5eef8 52%, #f1e9f5 100%);
+  background-attachment: fixed;
+}
+
+#app,
+main,
+.hero.reference-hero,
+.model-section,
+.taxonomy-section,
+.selection-section,
+.method-section {
+  background: transparent;
+}
+
+html.map-workspace-open,
+body.map-workspace-open {
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
+body.map-workspace-open .topbar,
+body.map-workspace-open .hero-copy,
+body.map-workspace-open .capability-dock,
+body.map-workspace-open .scroll-cue {
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.map-workspace-exit {
+  position: absolute;
+  z-index: 20;
+  top: 28px;
+  left: 28px;
+  display: inline-flex;
+  min-height: 46px;
+  align-items: center;
+  gap: 8px;
+  padding: 0 17px;
+  border: 1px solid rgba(43, 22, 73, 0.16);
+  border-radius: 999px;
+  background: rgba(250, 247, 252, 0.9);
+  color: var(--hero-ink);
+  font-size: 13px;
+  font-weight: 700;
+  -webkit-backdrop-filter: blur(14px) saturate(120%);
+  backdrop-filter: blur(14px) saturate(120%);
+  box-shadow: 0 14px 34px rgba(55, 30, 79, 0.12);
+}
+
+.map-workspace-exit[hidden] {
+  display: none;
+}
+
+.map-workspace-exit:hover,
+.map-workspace-exit:focus-visible {
+  border-color: rgba(43, 22, 73, 0.34);
+  background: #fff;
+  outline: 3px solid rgba(109, 74, 255, 0.18);
+  outline-offset: 3px;
+  transform: translateY(-1px);
+}
+
+.hero-map-visual.map-workspace-active {
+  position: fixed;
+  z-index: 1000;
+  inset: 0;
+  width: 100vw;
+  height: 100svh;
+  max-width: none;
+  margin: 0;
+  aspect-ratio: auto;
+  contain: none;
+  background:
+    radial-gradient(circle at 50% 42%, rgba(255, 255, 255, 0.82), transparent 36%),
+    linear-gradient(135deg, #f7f0f9 0%, #f5eef8 52%, #f1e9f5 100%);
+  cursor: grab;
+  transform: none;
+}
+
+.hero-map-visual.map-workspace-active.is-dragging {
+  cursor: grabbing;
+}
+
+.hero-map-visual.map-workspace-active::after {
+  right: 18%;
+  bottom: 1%;
+  left: 18%;
+  height: 12%;
+}
+
+.map-workspace-active .map-controls {
+  top: 28px;
+  right: 28px;
+}
+
+.map-workspace-active .map-controls span {
+  min-height: 42px;
+  padding-inline: 14px;
+  background: rgba(250, 247, 252, 0.86);
+}
+
+.map-workspace-active .map-controls button {
+  width: 42px;
+  height: 42px;
+  background: rgba(250, 247, 252, 0.9);
+}
+
+.map-workspace-active .map-value-legend {
+  top: 92px;
+  left: 28px;
+}
+
+.map-workspace-active.district-detail-active button.map-label.active {
+  top: 28px;
+}
+
+.map-workspace-active .map-detail,
+.hero-map-interactive.map-workspace-active:not(.district-detail-active) .map-detail {
+  right: 28px;
+  bottom: 28px;
+  left: auto;
+  max-width: min(640px, calc(100vw - 56px));
+  transform: none;
+}
+
+.hero-map-interactive.map-workspace-active:not(.district-detail-active) .map-detail {
+  width: max-content;
+  padding: 0;
+}
+
+.map-workspace-active.district-detail-active .map-detail {
+  width: min(680px, calc(100vw - 56px));
+}
+
+.map-workspace-active.district-detail-active .map-detail[data-value-tier] {
+  width: min(620px, calc(100vw - 56px));
+  max-height: min(52svh, 560px);
+  overflow-y: auto;
+}
+
+.map-workspace-active .community-local-map {
+  background: #eee9f1;
+}
+
+@media (max-width: 600px) {
+  .map-workspace-exit {
+    top: 14px;
+    left: 14px;
+    width: 44px;
+    min-height: 44px;
+    justify-content: center;
+    padding: 0;
+    border-color: transparent;
+    background: var(--hero-ink);
+    color: #fff;
+    box-shadow: 0 12px 28px rgba(43, 22, 73, 0.24);
+  }
+
+  .map-workspace-exit span {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  .map-workspace-active .map-controls {
+    top: 14px;
+    right: 14px;
+  }
+
+  .map-workspace-active .map-value-legend {
+    top: 70px;
+    right: 14px;
+    left: 14px;
+    width: auto;
+    transform: none;
+  }
+
+  .map-workspace-active.district-detail-active button.map-label.active {
+    display: none;
+  }
+
+  .hero-map-interactive.map-workspace-active .map-detail,
+  .hero-map-interactive.map-workspace-active.district-detail-active .map-detail,
+  .hero-map-interactive.map-workspace-active.district-detail-active .map-detail[data-value-tier] {
+    right: 10px;
+    bottom: 10px;
+    left: 10px;
+    width: auto;
+    max-width: none;
+    transform: none;
+  }
+}
