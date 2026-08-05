@@ -1,6 +1,15 @@
 import * as THREE from 'three'
+import {
+  calculatePurchaseValue,
+  getCommunitySamples,
+  getPurchaseValueTier,
+  purchaseValueBands,
+  type CommunityValueSample,
+  type DistrictKey,
+  type PurchaseValueTier,
+} from './community-value'
 
-type DistrictKey = 'haidian' | 'chaoyang' | 'shijingshan' | 'xicheng' | 'fengtai' | 'tongzhou' | 'daxing'
+type ValueFilter = PurchaseValueTier | 'all'
 
 type DistrictInfo = {
   name: string
@@ -34,6 +43,9 @@ export async function initHeroMap3d(host: HTMLElement) {
   const statusStats = host.querySelector<HTMLElement>('#mapDistrictStats')
   const exitButton = host.querySelector<HTMLButtonElement>('#exitDistrictMap')
   const resetButton = host.querySelector<HTMLButtonElement>('#resetMapView')
+  const interactionHint = host.querySelector<HTMLElement>('#mapInteractionHint')
+  const communityLayer = host.querySelector<HTMLElement>('#communityValueLayer')
+  const valueLegend = host.querySelector<HTMLElement>('#mapValueLegend')
   const textureUrl = host.dataset.texture
 
   if (!canvas || !textureUrl || !window.WebGLRenderingContext) {
@@ -71,6 +83,9 @@ export async function initHeroMap3d(host: HTMLElement) {
   let disposed = false
   let visible = true
   let previousTime = performance.now()
+  let activeDistrict: DistrictKey | null = null
+  let activeCommunityId: string | null = null
+  let activeValueFilter: ValueFilter = 'all'
 
   const render = (time = performance.now()) => {
     if (disposed) return
@@ -146,8 +161,14 @@ export async function initHeroMap3d(host: HTMLElement) {
   }
   const onKeyDown = (event: KeyboardEvent) => {
     if (event.key === 'Escape' && host.classList.contains('district-detail-active')) {
-      reset()
-      host.focus()
+      if (activeCommunityId && activeDistrict) {
+        activeCommunityId = null
+        renderCommunityMarkers(activeDistrict)
+        showDistrictSummary(activeDistrict)
+      } else {
+        reset()
+        host.focus()
+      }
       event.preventDefault()
       return
     }
@@ -160,8 +181,75 @@ export async function initHeroMap3d(host: HTMLElement) {
     event.preventDefault()
   }
 
+  const updateLegendState = () => {
+    valueLegend?.querySelectorAll<HTMLButtonElement>('[data-value-filter]').forEach((button) => {
+      const selected = button.dataset.valueFilter === activeValueFilter
+      button.classList.toggle('active', selected)
+      button.setAttribute('aria-pressed', String(selected))
+    })
+  }
+
+  const renderCommunityMarkers = (key: DistrictKey) => {
+    if (!communityLayer) return
+    const samples = getCommunitySamples(key)
+      .map((sample) => ({ sample, score: calculatePurchaseValue(sample) }))
+      .sort((a, b) => b.score - a.score)
+
+    communityLayer.innerHTML = samples.map(({ sample, score }, index) => {
+      const tier = getPurchaseValueTier(score)
+      const hidden = activeValueFilter !== 'all' && activeValueFilter !== tier
+      const selected = activeCommunityId === sample.id
+      return `<button class="community-value-marker tier-${tier}${selected ? ' active' : ''}" type="button" data-community-id="${sample.id}" style="--marker-x:${sample.position.x}%;--marker-y:${sample.position.y}%;--marker-order:${index}" aria-label="${sample.name}，购买价值${score}分，${purchaseValueBands[tier].label}" aria-pressed="${selected}"${hidden ? ' hidden' : ''}><span class="community-score">${score}</span><span class="community-marker-copy"><b>${sample.name}</b><small>同质折价 ${sample.adjustedDiscount >= 0 ? '+' : ''}${sample.adjustedDiscount.toFixed(1)}%</small></span></button>`
+    }).join('')
+    communityLayer.hidden = false
+    if (valueLegend) valueLegend.hidden = false
+    updateLegendState()
+  }
+
+  const showDistrictSummary = (key: DistrictKey) => {
+    const info = districts[key]
+    const samples = getCommunitySamples(key)
+    const scores = samples.map(calculatePurchaseValue)
+    const average = Math.round(scores.reduce((total, score) => total + score, 0) / Math.max(scores.length, 1))
+    const strongCount = scores.filter((score) => getPurchaseValueTier(score) === 'strong').length
+    if (status) {
+      status.removeAttribute('data-value-tier')
+      status.setAttribute('aria-label', `已进入${info.name}小区价值地图`)
+    }
+    if (statusTitle) statusTitle.innerHTML = `${info.name} · 小区价值<em>${average}分</em>`
+    if (statusSummary) statusSummary.textContent = '点击彩色小区标记，查看质量、同质折价和成交样本。'
+    if (statusStats) {
+      statusStats.hidden = false
+      statusStats.innerHTML = `<span><small>示例小区</small><b>${samples.length} 个</b></span><span><small>优先核验</small><b>${strongCount} 个</b></span><span><small>数据口径</small><b>演示模型 · 非实时</b></span>`
+    }
+  }
+
+  const selectCommunity = (sample: CommunityValueSample) => {
+    activeCommunityId = sample.id
+    const score = calculatePurchaseValue(sample)
+    const tier = getPurchaseValueTier(score)
+    communityLayer?.querySelectorAll<HTMLButtonElement>('[data-community-id]').forEach((button) => {
+      const selected = button.dataset.communityId === sample.id
+      button.classList.toggle('active', selected)
+      button.setAttribute('aria-pressed', String(selected))
+    })
+    if (status) {
+      status.dataset.valueTier = tier
+      status.setAttribute('aria-label', `${sample.name}购买价值详情`)
+    }
+    if (statusTitle) statusTitle.innerHTML = `${sample.name}<em>${score}分 · ${purchaseValueBands[tier].label}</em>`
+    if (statusSummary) statusSummary.textContent = `${sample.zone} · 重点核验：${sample.watch}`
+    if (statusStats) {
+      statusStats.hidden = false
+      statusStats.innerHTML = `<span><small>优质小区分</small><b>${sample.qualityScore} / 100</b></span><span><small>同质可比折价</small><b>${sample.adjustedDiscount >= 0 ? '+' : ''}${sample.adjustedDiscount.toFixed(1)}%</b></span><span><small>180天成交 / 可比样本</small><b>${sample.transactions180d} / ${sample.comparableSamples} 套</b></span>`
+    }
+  }
+
   const selectDistrict = (key: DistrictKey) => {
     const info = districts[key]
+    activeDistrict = key
+    activeCommunityId = null
+    activeValueFilter = 'all'
     host.classList.add('district-detail-active')
     host.dataset.activeDistrict = key
     host.querySelectorAll<HTMLButtonElement>('[data-map-district]').forEach((button) => {
@@ -174,25 +262,43 @@ export async function initHeroMap3d(host: HTMLElement) {
     target.positionX = info.offset[0]
     target.positionY = info.offset[1]
     target.scale = host.clientWidth < 600 ? 1.22 : 1.52
-    if (status) status.setAttribute('aria-label', `已进入${info.name}区域地图`)
-    if (statusTitle) statusTitle.innerHTML = `${info.name}<em>${info.value}</em>`
-    if (statusSummary) statusSummary.textContent = info.note
-    if (statusStats) {
-      statusStats.hidden = false
-      statusStats.innerHTML = `<span><small>重点板块</small><b>${info.zones}</b></span><span><small>核心优势</small><b>${info.strength}</b></span><span><small>重点核验</small><b>${info.watch}</b></span>`
-    }
+    renderCommunityMarkers(key)
+    showDistrictSummary(key)
+    if (interactionHint) interactionHint.innerHTML = '<i class="ph ph-cursor-click"></i> 点击小区查看价值 · 拖拽旋转'
     if (exitButton) {
       exitButton.hidden = false
       exitButton.setAttribute('aria-hidden', 'false')
     }
   }
 
-  const onDistrictClick = (event: Event) => {
-    const button = (event.target as HTMLElement).closest<HTMLButtonElement>('[data-map-district]')
-    if (!button) return
-    selectDistrict(button.dataset.mapDistrict as DistrictKey)
+  const onMapClick = (event: Event) => {
+    const targetElement = event.target as HTMLElement
+    const communityButton = targetElement.closest<HTMLButtonElement>('[data-community-id]')
+    if (communityButton && activeDistrict) {
+      const sample = getCommunitySamples(activeDistrict).find((item) => item.id === communityButton.dataset.communityId)
+      if (sample) selectCommunity(sample)
+      return
+    }
+    const filterButton = targetElement.closest<HTMLButtonElement>('[data-value-filter]')
+    if (filterButton && activeDistrict) {
+      activeValueFilter = filterButton.dataset.valueFilter as ValueFilter
+      const selectedSample = activeCommunityId
+        ? getCommunitySamples(activeDistrict).find((sample) => sample.id === activeCommunityId)
+        : undefined
+      if (selectedSample && activeValueFilter !== 'all' && getPurchaseValueTier(calculatePurchaseValue(selectedSample)) !== activeValueFilter) {
+        activeCommunityId = null
+        showDistrictSummary(activeDistrict)
+      }
+      renderCommunityMarkers(activeDistrict)
+      return
+    }
+    const districtButton = targetElement.closest<HTMLButtonElement>('[data-map-district]')
+    if (districtButton) selectDistrict(districtButton.dataset.mapDistrict as DistrictKey)
   }
   const reset = () => {
+    activeDistrict = null
+    activeCommunityId = null
+    activeValueFilter = 'all'
     host.classList.remove('district-detail-active')
     delete host.dataset.activeDistrict
     target.x = -0.035
@@ -205,7 +311,10 @@ export async function initHeroMap3d(host: HTMLElement) {
       button.classList.remove('active')
       button.setAttribute('aria-pressed', 'false')
     })
-    if (status) status.setAttribute('aria-label', '北京核心区地图总览')
+    if (status) {
+      status.removeAttribute('data-value-tier')
+      status.setAttribute('aria-label', '北京核心区地图总览')
+    }
     if (statusTitle) statusTitle.textContent = '北京 · 核心区'
     if (statusSummary) statusSummary.textContent = '点击区县进入区域地图，拖拽地图可调整视角。'
     if (statusStats) { statusStats.hidden = true; statusStats.innerHTML = '' }
@@ -213,6 +322,9 @@ export async function initHeroMap3d(host: HTMLElement) {
       exitButton.hidden = true
       exitButton.setAttribute('aria-hidden', 'true')
     }
+    if (communityLayer) { communityLayer.hidden = true; communityLayer.innerHTML = '' }
+    if (valueLegend) valueLegend.hidden = true
+    if (interactionHint) interactionHint.innerHTML = '<i class="ph ph-cursor-click"></i> 点击区县进入详情 · 拖拽旋转'
   }
 
   host.addEventListener('pointerdown', onPointerDown)
@@ -221,7 +333,7 @@ export async function initHeroMap3d(host: HTMLElement) {
   host.addEventListener('pointercancel', finishDrag)
   host.addEventListener('pointerleave', onPointerLeave)
   host.addEventListener('keydown', onKeyDown)
-  host.addEventListener('click', onDistrictClick)
+  host.addEventListener('click', onMapClick)
   resetButton?.addEventListener('click', reset)
   exitButton?.addEventListener('click', reset)
 
@@ -250,7 +362,7 @@ export async function initHeroMap3d(host: HTMLElement) {
     host.removeEventListener('pointercancel', finishDrag)
     host.removeEventListener('pointerleave', onPointerLeave)
     host.removeEventListener('keydown', onKeyDown)
-    host.removeEventListener('click', onDistrictClick)
+    host.removeEventListener('click', onMapClick)
     resetButton?.removeEventListener('click', reset)
     exitButton?.removeEventListener('click', reset)
     map.geometry.dispose()
