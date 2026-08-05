@@ -6118,11 +6118,18 @@ main {
 }
 
 /* Continuous canvas and dedicated full-screen map workspace */
+html {
+  background: #f5eef8;
+}
+
 body {
+  min-height: 100%;
   background:
     radial-gradient(circle at 78% 8%, rgba(255, 255, 255, 0.72), transparent 30%),
     linear-gradient(135deg, #f7f0f9 0%, #f5eef8 52%, #f1e9f5 100%);
+  background-color: #f5eef8;
   background-attachment: fixed;
+  background-repeat: no-repeat;
 }
 
 #app,
@@ -6133,6 +6140,27 @@ main,
 .selection-section,
 .method-section {
   background: transparent;
+}
+
+#app,
+main {
+  min-height: 100%;
+}
+
+.hero.reference-hero {
+  margin-bottom: 0;
+  border-bottom: 0;
+  box-shadow: none;
+}
+
+.model-section#model {
+  margin-top: 0;
+  padding-top: clamp(28px, 3vw, 48px);
+  border-top: 0;
+}
+
+.model-section#model::before {
+  display: none;
 }
 
 html.map-workspace-open,
@@ -6266,6 +6294,10 @@ body.map-workspace-open .scroll-cue {
 }
 
 @media (max-width: 600px) {
+  .model-section#model {
+    padding-top: 24px;
+  }
+
   .map-workspace-exit {
     top: 14px;
     left: 14px;
