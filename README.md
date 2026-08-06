@@ -200,6 +200,16 @@ Vite · TypeScript · Vitest · Three.js · GSAP ScrollTrigger · 原生 DOM · 
 - 图表提供可访问文本数据，并支持方向键逐年查看
 - 测算参数、候选房源和导入数据均只在本地处理
 
+## 许可证与数据权利
+
+本项目自有源代码和项目自有文档采用 [MIT License](LICENSE)。MIT 许可不改变仓库内第三方数据或其他第三方材料的原有权利：
+
+- `public/data/community-values.json` 是依据项目专项授权发布的派生评分数据，不属于 MIT 授权范围；该授权也不包含上游原始成交明细的自由再分发权。
+- `public/data/beijing-osm-community-catalog.json` 来自 OpenStreetMap，遵循 [ODbL 1.0](https://www.openstreetmap.org/copyright)，使用时需保留 `© OpenStreetMap contributors` 署名。
+- 第三方依赖、字体、地图边界及其他第三方材料继续适用其各自的许可证、授权条款和署名要求；不能仅因其位于本仓库而推定为 MIT。
+
+完整的数据来源、授权边界和覆盖率见 [`docs/community-data.md`](docs/community-data.md)。
+
 ## 重要声明
 
 这是教育型决策工具，不构成投资、贷款、税务、法律或购房建议。默认利率只是可编辑示例，真实决策前请从页面提供的北京市公积金、房地产数据和购房资格官方入口复核资格、利率、税费、产权、成交、空置、维修、迁徙和流动性折价等个体因素。
