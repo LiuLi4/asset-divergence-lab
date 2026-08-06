@@ -88,6 +88,22 @@ type CommunityDot = {
   y: number
 }
 
+type CommunityScoreRecord = {
+  sample: CommunityValueSample
+  score: number
+  tier: CommunityMapTier
+  sourcePosition: { x: number; y: number }
+  position: { x: number; y: number }
+}
+
+export function findClosestCommunityDot<T extends { x: number; y: number }>(dots: T[], x: number, y: number, maxDistance = 15) {
+  const closest = dots.reduce<{ dot: T; distance: number } | null>((result, dot) => {
+    const distance = Math.hypot(dot.x - x, dot.y - y)
+    return !result || distance < result.distance ? { dot, distance } : result
+  }, null)
+  return closest && closest.distance <= maxDistance ? closest.dot : null
+}
+
 export async function initHeroMap3d(host: HTMLElement) {
   const canvas = host.querySelector<HTMLCanvasElement>('#heroMapCanvas')
   const fallback = host.querySelector<HTMLImageElement>('.hero-map-fallback')
@@ -188,12 +204,6 @@ export async function initHeroMap3d(host: HTMLElement) {
   statusStats?.before(communityStepper)
   const communityStepOutput = communityStepper.querySelector<HTMLOutputElement>('output')
 
-  const communityHitLayer = document.createElement('div')
-  communityHitLayer.className = 'community-point-hit-layer'
-  communityHitLayer.setAttribute('aria-label', '全部可点击小区点位')
-  communityHitLayer.hidden = true
-  communityDots?.after(communityHitLayer)
-
   if (!canvas || !textureUrl || !window.WebGLRenderingContext) {
     host.classList.add('map-3d-fallback')
     return () => undefined
@@ -244,13 +254,14 @@ export async function initHeroMap3d(host: HTMLElement) {
   let userImportedDataset = false
   let renderedDots: CommunityDot[] = []
   let redrawCommunityLayer = () => undefined
-  let updateCommunityNavigator = () => undefined
+  let updateCommunityNavigator: (records?: CommunityScoreRecord[]) => void = () => undefined
   let activeLocalMapFrame: HTMLIFrameElement | null = null
   let drillRequestId = 0
   let drillCleanupTimer = 0
   let drillCommitTimer = 0
   let osmPreconnected = false
   let returnToDistrictView = () => undefined
+  const communityRecordCache = new Map<DistrictKey, Omit<CommunityScoreRecord, 'position'>[]>()
 
   const clearDrillTimers = () => {
     window.clearTimeout(drillCleanupTimer)
@@ -494,27 +505,32 @@ export async function initHeroMap3d(host: HTMLElement) {
     })
   }
 
-  const getVisibleCommunityScores = (key: DistrictKey) => getCommunitySamples(key, activeCommunities)
-    .map((sample) => {
-      const score = calculatePurchaseValue(sample)
-      const sourcePosition = resolveCommunityPosition(sample)
-      return {
-        sample,
-        score,
-        tier: getCommunityTier(sample),
-        sourcePosition,
-        position: projectCommunityMapPoint(sourcePosition, communityViewport),
-      }
-    })
-    .filter(({ tier }) => activeValueFilter === 'all' || activeValueFilter === tier)
-    .sort((a, b) => b.score - a.score)
+  const getCommunityScoreRecords = (key: DistrictKey) => {
+    const cached = communityRecordCache.get(key)
+    if (cached) return cached
+    const records = getCommunitySamples(key, activeCommunities).map((sample) => ({
+      sample,
+      score: calculatePurchaseValue(sample),
+      tier: getCommunityTier(sample),
+      sourcePosition: resolveCommunityPosition(sample),
+    })).sort((a, b) => b.score - a.score)
+    communityRecordCache.set(key, records)
+    return records
+  }
 
-  updateCommunityNavigator = () => {
+  const getVisibleCommunityScores = (key: DistrictKey): CommunityScoreRecord[] => getCommunityScoreRecords(key)
+    .filter(({ tier }) => activeValueFilter === 'all' || activeValueFilter === tier)
+    .map((record) => ({
+      ...record,
+      position: projectCommunityMapPoint(record.sourcePosition, communityViewport),
+    }))
+
+  updateCommunityNavigator = (records = activeDistrict ? getVisibleCommunityScores(activeDistrict) : []) => {
     if (!activeDistrict) {
       communityStepper.hidden = true
       return
     }
-    const communities = getVisibleCommunityScores(activeDistrict).map(({ sample }) => sample)
+    const communities = records.map(({ sample }) => sample)
     const navigation = getCommunityNavigationState(communities, activeCommunityId)
     communityStepper.hidden = false
     if (communityStepOutput) communityStepOutput.value = navigation.positionLabel
@@ -531,7 +547,7 @@ export async function initHeroMap3d(host: HTMLElement) {
     else updateCommunityNavigator()
   }
 
-  const drawCommunityDots = (key: DistrictKey) => {
+  const drawCommunityDots = (records: CommunityScoreRecord[]) => {
     if (!communityDots) return
     const size = resolveCommunityCanvasSize(host.clientWidth, host.clientHeight, window.devicePixelRatio)
     if (communityDots.width !== size.width || communityDots.height !== size.height) {
@@ -543,7 +559,6 @@ export async function initHeroMap3d(host: HTMLElement) {
     context.setTransform(size.pixelRatio, 0, 0, size.pixelRatio, 0, 0)
     context.clearRect(0, 0, size.cssWidth, size.cssHeight)
 
-    const records = getVisibleCommunityScores(key)
     const radius = (records.length > 1_000 ? 2.2 : records.length > 200 ? 2.8 : 3.8) + Math.min(communityViewport.zoom - 1, 1.4) * 0.75
     renderedDots = records.map(({ sample, score, tier, position }) => ({
       sample,
@@ -574,11 +589,11 @@ export async function initHeroMap3d(host: HTMLElement) {
     communityDots.hidden = false
   }
 
-  const chooseLabelledCommunities = (key: DistrictKey) => {
-    const records = getVisibleCommunityScores(key).filter(({ position }) => isCommunityMapPointVisible(position, 2))
+  const chooseLabelledCommunities = (records: CommunityScoreRecord[]) => {
+    const visibleRecords = records.filter(({ position }) => isCommunityMapPointVisible(position, 2))
     const limit = host.clientWidth < 600 ? 6 : host.clientWidth < 900 ? 10 : 18
-    const selected = activeCommunityId ? records.find(({ sample }) => sample.id === activeCommunityId) : undefined
-    const candidates = selected ? [selected, ...records.filter(({ sample }) => sample.id !== selected.sample.id)] : records
+    const selected = activeCommunityId ? visibleRecords.find(({ sample }) => sample.id === activeCommunityId) : undefined
+    const candidates = selected ? [selected, ...visibleRecords.filter(({ sample }) => sample.id !== selected.sample.id)] : visibleRecords
     const hostRect = host.getBoundingClientRect()
     const markerWidth = host.clientWidth < 600 ? 98 : 126
     const markerHeight = host.clientWidth < 600 ? 40 : 48
@@ -586,7 +601,7 @@ export async function initHeroMap3d(host: HTMLElement) {
       .map((element) => element?.getBoundingClientRect())
       .filter((rect): rect is DOMRect => Boolean(rect?.width && rect?.height))
     const labelledRects: Array<{ left: number; right: number; top: number; bottom: number }> = []
-    return candidates.reduce<typeof records>((labels, record) => {
+    return candidates.reduce<typeof visibleRecords>((labels, record) => {
       if (labels.length >= limit) return labels
       const centreX = hostRect.left + record.position.x / 100 * hostRect.width
       const centreY = hostRect.top + record.position.y / 100 * hostRect.height
@@ -611,18 +626,11 @@ export async function initHeroMap3d(host: HTMLElement) {
   }
 
   const renderCommunityMarkers = (key: DistrictKey) => {
-    drawCommunityDots(key)
+    const records = getVisibleCommunityScores(key)
+    drawCommunityDots(records)
     if (!communityLayer) return
     if (valueLegend) valueLegend.hidden = false
-    const allVisibleSamples = getVisibleCommunityScores(key).filter(({ position }) => isCommunityMapPointVisible(position, 2))
-    communityHitLayer.innerHTML = allVisibleSamples.map(({ sample, tier, position }) => {
-      const selected = activeCommunityId === sample.id
-      const id = escapeHtml(sample.id)
-      const name = escapeHtml(sample.name)
-      return `<button class="community-point-hit tier-${tier}${selected ? ' active' : ''}" type="button" tabindex="-1" data-community-id="${id}" data-point-label="${name}" style="--point-x:${position.x}%;--point-y:${position.y}%" aria-label="查看${name}" aria-pressed="${selected}"></button>`
-    }).join('')
-    communityHitLayer.hidden = false
-    const samples = chooseLabelledCommunities(key)
+    const samples = chooseLabelledCommunities(records)
     communityLayer.innerHTML = samples.map(({ sample, score, tier, position }, index) => {
       const selected = activeCommunityId === sample.id
       const id = escapeHtml(sample.id)
@@ -634,7 +642,7 @@ export async function initHeroMap3d(host: HTMLElement) {
     }).join('')
     communityLayer.hidden = false
     updateLegendState()
-    updateCommunityNavigator()
+    updateCommunityNavigator(records)
   }
 
   redrawCommunityLayer = () => {
@@ -828,12 +836,9 @@ export async function initHeroMap3d(host: HTMLElement) {
       const rect = communityDots.getBoundingClientRect()
       const x = pointerEvent.clientX - rect.left
       const y = pointerEvent.clientY - rect.top
-      const closest = renderedDots.reduce<{ dot: CommunityDot; distance: number } | null>((result, dot) => {
-        const distance = Math.hypot(dot.x - x, dot.y - y)
-        return !result || distance < result.distance ? { dot, distance } : result
-      }, null)
-      if (closest && closest.distance <= 15) {
-        selectCommunity(closest.dot.sample, activeCommunityId === closest.dot.sample.id && host.classList.contains('community-focus-active'))
+      const closest = findClosestCommunityDot(renderedDots, x, y)
+      if (closest) {
+        selectCommunity(closest.sample, activeCommunityId === closest.sample.id && host.classList.contains('community-focus-active'))
       }
       return
     }
@@ -871,6 +876,7 @@ export async function initHeroMap3d(host: HTMLElement) {
       userImportedDataset = true
       activeDataset = dataset
       activeCommunities = dataset.communities
+      communityRecordCache.clear()
       activeCommunityId = null
       activeValueFilter = 'all'
       communityViewport = { ...defaultCommunityMapViewport }
@@ -900,6 +906,7 @@ export async function initHeroMap3d(host: HTMLElement) {
       if (disposed || userImportedDataset) return
       activeDataset = dataset
       activeCommunities = dataset.communities
+      communityRecordCache.clear()
       activeCommunityId = null
       activeValueFilter = 'all'
       communityViewport = { ...defaultCommunityMapViewport }
@@ -950,8 +957,6 @@ export async function initHeroMap3d(host: HTMLElement) {
       exitButton.setAttribute('aria-label', '返回北京全图')
     }
     if (communityLayer) { communityLayer.hidden = true; communityLayer.innerHTML = '' }
-    communityHitLayer.hidden = true
-    communityHitLayer.innerHTML = ''
     communityStepper.hidden = true
     closeCommunityLocation()
     if (communityDots) {

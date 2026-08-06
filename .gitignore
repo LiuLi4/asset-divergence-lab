@@ -4,3 +4,4 @@ dist
 work
 tmp
 outputs
+.gstack/

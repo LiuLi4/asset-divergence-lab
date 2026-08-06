@@ -8,7 +8,7 @@ import {
   parseCommunityValueDataset,
   resolveCommunityPosition,
 } from './community-value'
-import { resolveCommunityCanvasSize } from './hero-map-3d'
+import { findClosestCommunityDot, resolveCommunityCanvasSize } from './hero-map-3d'
 
 describe('community purchase value model', () => {
   it('uses stable score bands for map colours', () => {
@@ -87,5 +87,15 @@ describe('community purchase value model', () => {
       width: 2_020,
       height: 1_360,
     })
+  })
+
+  it('keeps every canvas point independently clickable without one DOM node per community', () => {
+    const dots = [
+      { id: 'left', x: 20, y: 30 },
+      { id: 'right', x: 75, y: 65 },
+    ]
+    expect(findClosestCommunityDot(dots, 23, 32)?.id).toBe('left')
+    expect(findClosestCommunityDot(dots, 72, 68)?.id).toBe('right')
+    expect(findClosestCommunityDot(dots, 45, 45)).toBeNull()
   })
 })
