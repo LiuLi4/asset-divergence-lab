@@ -1,5 +1,15 @@
 import * as THREE from 'three'
-import { applyMapViewPose, resolveCommunityDrillPose, resolveDistrictMapPose, type MapViewPose } from './community-drilldown'
+import {
+  applyMapViewPose,
+  defaultCommunityMapViewport,
+  focusCommunityMapViewport,
+  isCommunityMapPointVisible,
+  projectCommunityMapPoint,
+  resolveCommunityDrillPose,
+  resolveDistrictMapPose,
+  type CommunityMapViewport,
+  type MapViewPose,
+} from './community-drilldown'
 import { buildCommunityLocationContext } from './community-map-context'
 import { getCommunityNavigationState, navigateCommunitySelection, type CommunityNavigationDirection } from './community-navigation'
 import {
@@ -178,6 +188,12 @@ export async function initHeroMap3d(host: HTMLElement) {
   statusStats?.before(communityStepper)
   const communityStepOutput = communityStepper.querySelector<HTMLOutputElement>('output')
 
+  const communityHitLayer = document.createElement('div')
+  communityHitLayer.className = 'community-point-hit-layer'
+  communityHitLayer.setAttribute('aria-label', '全部可点击小区点位')
+  communityHitLayer.hidden = true
+  communityDots?.after(communityHitLayer)
+
   if (!canvas || !textureUrl || !window.WebGLRenderingContext) {
     host.classList.add('map-3d-fallback')
     return () => undefined
@@ -216,6 +232,7 @@ export async function initHeroMap3d(host: HTMLElement) {
   let activeDistrict: DistrictKey | null = null
   let activeCommunityId: string | null = null
   let activeValueFilter: ValueFilter = 'all'
+  let communityViewport: CommunityMapViewport = { ...defaultCommunityMapViewport }
   let activeCommunities = communityValueSamples
   let activeDataset: CommunityValueDataset = {
     version: 1,
@@ -240,29 +257,29 @@ export async function initHeroMap3d(host: HTMLElement) {
     window.clearTimeout(drillCommitTimer)
   }
 
-  const finishClosingCommunityLocation = () => {
+  const finishClosingCommunityLocation = (preserveDetails = false) => {
     host.classList.remove('community-location-active', 'community-drill-approaching', 'community-drill-entering', 'community-drill-returning', 'community-vicinity-switching')
     localMap.hidden = true
     localMap.setAttribute('aria-busy', 'false')
-    communityLocation.hidden = true
+    if (!preserveDetails) communityLocation.hidden = true
     drillIndicator.hidden = true
     localMapFrames?.replaceChildren()
     activeLocalMapFrame = null
   }
 
-  const closeCommunityLocation = (animate = false) => {
+  const closeCommunityLocation = (animate = false, preserveDetails = false) => {
     drillRequestId += 1
     clearDrillTimers()
     if (animate && host.classList.contains('community-location-active') && !reducedMotion) {
       host.classList.remove('community-location-active', 'community-drill-entering', 'community-vicinity-switching')
       host.classList.add('community-drill-returning')
       localMap.setAttribute('aria-busy', 'false')
-      communityLocation.hidden = true
+      communityLocation.hidden = !preserveDetails
       drillIndicator.hidden = true
-      drillCleanupTimer = window.setTimeout(finishClosingCommunityLocation, 460)
+      drillCleanupTimer = window.setTimeout(() => finishClosingCommunityLocation(preserveDetails), 460)
       return
     }
-    finishClosingCommunityLocation()
+    finishClosingCommunityLocation(preserveDetails)
   }
 
   const preconnectOpenStreetMap = () => {
@@ -292,7 +309,7 @@ export async function initHeroMap3d(host: HTMLElement) {
     const point = resolveCommunityPosition(sample)
     const districtInfo = districts[sample.district]
     const districtPose = resolveDistrictMapPose(districtInfo.focus, districtInfo.offset, host.clientWidth)
-    const drillPose = resolveCommunityDrillPose(districtPose, point, host.clientWidth)
+    const drillPose = resolveCommunityDrillPose(districtPose, point, host.clientWidth, Math.max(communityViewport.zoom, 2.35))
     const startedAt = performance.now()
     const pendingFrame = createLocalMapFrame(`${sample.name}周边道路与公开配套地图`)
     const progressLabel = localMap.querySelector<HTMLElement>('.community-drill-progress span')
@@ -405,7 +422,10 @@ export async function initHeroMap3d(host: HTMLElement) {
   resize()
 
   const onPointerDown = (event: PointerEvent) => {
-    if ((event.target as HTMLElement).closest('button')) return
+    if ((event.target as HTMLElement).closest('button')) {
+      drag.moved = false
+      return
+    }
     drag.active = true
     drag.moved = false
     drag.id = event.pointerId
@@ -477,7 +497,14 @@ export async function initHeroMap3d(host: HTMLElement) {
   const getVisibleCommunityScores = (key: DistrictKey) => getCommunitySamples(key, activeCommunities)
     .map((sample) => {
       const score = calculatePurchaseValue(sample)
-      return { sample, score, tier: getCommunityTier(sample), position: resolveCommunityPosition(sample) }
+      const sourcePosition = resolveCommunityPosition(sample)
+      return {
+        sample,
+        score,
+        tier: getCommunityTier(sample),
+        sourcePosition,
+        position: projectCommunityMapPoint(sourcePosition, communityViewport),
+      }
     })
     .filter(({ tier }) => activeValueFilter === 'all' || activeValueFilter === tier)
     .sort((a, b) => b.score - a.score)
@@ -500,7 +527,7 @@ export async function initHeroMap3d(host: HTMLElement) {
     if (!activeDistrict) return
     const communities = getVisibleCommunityScores(activeDistrict).map(({ sample }) => sample)
     const navigation = navigateCommunitySelection(communities, activeCommunityId, direction)
-    if (navigation.community) selectCommunity(navigation.community)
+    if (navigation.community) selectCommunity(navigation.community, host.classList.contains('community-location-active'))
     else updateCommunityNavigator()
   }
 
@@ -517,7 +544,7 @@ export async function initHeroMap3d(host: HTMLElement) {
     context.clearRect(0, 0, size.cssWidth, size.cssHeight)
 
     const records = getVisibleCommunityScores(key)
-    const radius = records.length > 1_000 ? 2.2 : records.length > 200 ? 2.8 : 3.8
+    const radius = (records.length > 1_000 ? 2.2 : records.length > 200 ? 2.8 : 3.8) + Math.min(communityViewport.zoom - 1, 1.4) * 0.75
     renderedDots = records.map(({ sample, score, tier, position }) => ({
       sample,
       score,
@@ -548,7 +575,7 @@ export async function initHeroMap3d(host: HTMLElement) {
   }
 
   const chooseLabelledCommunities = (key: DistrictKey) => {
-    const records = getVisibleCommunityScores(key)
+    const records = getVisibleCommunityScores(key).filter(({ position }) => isCommunityMapPointVisible(position, 2))
     const limit = host.clientWidth < 600 ? 6 : host.clientWidth < 900 ? 10 : 18
     const selected = activeCommunityId ? records.find(({ sample }) => sample.id === activeCommunityId) : undefined
     const candidates = selected ? [selected, ...records.filter(({ sample }) => sample.id !== selected.sample.id)] : records
@@ -587,6 +614,14 @@ export async function initHeroMap3d(host: HTMLElement) {
     drawCommunityDots(key)
     if (!communityLayer) return
     if (valueLegend) valueLegend.hidden = false
+    const allVisibleSamples = getVisibleCommunityScores(key).filter(({ position }) => isCommunityMapPointVisible(position, 2))
+    communityHitLayer.innerHTML = allVisibleSamples.map(({ sample, tier, position }) => {
+      const selected = activeCommunityId === sample.id
+      const id = escapeHtml(sample.id)
+      const name = escapeHtml(sample.name)
+      return `<button class="community-point-hit tier-${tier}${selected ? ' active' : ''}" type="button" tabindex="-1" data-community-id="${id}" data-point-label="${name}" style="--point-x:${position.x}%;--point-y:${position.y}%" aria-label="查看${name}" aria-pressed="${selected}"></button>`
+    }).join('')
+    communityHitLayer.hidden = false
     const samples = chooseLabelledCommunities(key)
     communityLayer.innerHTML = samples.map(({ sample, score, tier, position }, index) => {
       const selected = activeCommunityId === sample.id
@@ -631,7 +666,26 @@ export async function initHeroMap3d(host: HTMLElement) {
     if (!activeDistrict) return
     const key = activeDistrict
     const info = districts[key]
+    if (activeCommunityId && host.classList.contains('community-location-active')) {
+      const sample = getCommunitySamples(key, activeCommunities).find((community) => community.id === activeCommunityId)
+      if (sample) {
+        const sourcePosition = resolveCommunityPosition(sample)
+        const districtPose = resolveDistrictMapPose(info.focus, info.offset, host.clientWidth)
+        applyMapViewPose(target, resolveCommunityDrillPose(districtPose, sourcePosition, host.clientWidth, communityViewport.zoom))
+        closeCommunityLocation(true, true)
+        host.classList.add('community-focus-active')
+        renderCommunityMarkers(key)
+        if (interactionHint) interactionHint.innerHTML = `<i class="ph ph-magnifying-glass-plus"></i> 区域已放大 ${communityViewport.zoom.toFixed(2)}× · 点击其他点继续查看`
+        if (exitButton) {
+          exitButton.innerHTML = `<i class="ph ph-arrow-left" aria-hidden="true"></i> 返回${escapeHtml(info.name)}`
+          exitButton.setAttribute('aria-label', `返回${info.name}小区价值地图`)
+        }
+        return
+      }
+    }
     activeCommunityId = null
+    communityViewport = { ...defaultCommunityMapViewport }
+    host.classList.remove('community-focus-active')
     applyMapViewPose(target, resolveDistrictMapPose(info.focus, info.offset, host.clientWidth))
     closeCommunityLocation(true)
     showDistrictSummary(key, false)
@@ -643,8 +697,17 @@ export async function initHeroMap3d(host: HTMLElement) {
     }
   }
 
-  const selectCommunity = (sample: CommunityValueSample) => {
+  const selectCommunity = (sample: CommunityValueSample, openVicinity = false) => {
     activeCommunityId = sample.id
+    const sourcePosition = resolveCommunityPosition(sample)
+    if (!openVicinity) {
+      closeCommunityLocation(false, true)
+      communityViewport = focusCommunityMapViewport(communityViewport, sourcePosition)
+      const info = districts[sample.district]
+      const districtPose = resolveDistrictMapPose(info.focus, info.offset, host.clientWidth)
+      applyMapViewPose(target, resolveCommunityDrillPose(districtPose, sourcePosition, host.clientWidth, communityViewport.zoom))
+      host.classList.add('community-focus-active')
+    }
     const scoreBreakdown = getCommunityScoreBreakdown(sample)
     const score = scoreBreakdown.purchaseValueScore
     const tier = getCommunityTier(sample)
@@ -677,9 +740,9 @@ export async function initHeroMap3d(host: HTMLElement) {
       const employmentEvidence = scoreBreakdown.employmentAccess
         ? `最近核心工作区：${scoreBreakdown.employmentAccess.name}，直线约 ${scoreBreakdown.employmentAccess.distanceKm.toFixed(1)}km；实际通勤仍需高峰实测。`
         : '缺少坐标，暂不能计算核心工作区距离。'
-      communityLocation.innerHTML = `<div class="community-score-model"><div><b>五维品质证据</b><small>当前覆盖 ${scoreBreakdown.evidenceCoverage}% · 缺失项不默认给分</small></div><div class="community-dimension-grid">${dimensionScores}</div><p>${employmentEvidence} 周边新房、医院等级、户型朝向和人车分流需补充结构化证据。</p></div><div class="community-location-metrics"><span><small>商圈 / 坐标</small><b>${escapeHtml(sample.zone)} · ${location.coordinateLabel}</b></span><span><small>500m / 1km 内小区</small><b>${location.within500m} / ${location.within1km}</b></span><a href="${location.externalUrl}" target="_blank" rel="noreferrer"><i class="ph ph-arrow-square-out" aria-hidden="true"></i> 打开周边地图</a></div><ol class="nearby-community-list">${nearby}</ol><p>位置基于公开坐标；地图展示道路与公开配套要素，教育资格、医疗等级及实际步行距离需另行核验。</p>`
+      communityLocation.innerHTML = `<div class="community-score-model"><div><b>五维品质证据</b><small>当前覆盖 ${scoreBreakdown.evidenceCoverage}% · 缺失项不默认给分</small></div><div class="community-dimension-grid">${dimensionScores}</div><p>${employmentEvidence} 周边新房、医院等级、户型朝向和人车分流需补充结构化证据。</p></div><div class="community-location-metrics"><span><small>商圈 / 坐标</small><b>${escapeHtml(sample.zone)} · ${location.coordinateLabel}</b></span><span><small>500m / 1km 内小区</small><b>${location.within500m} / ${location.within1km}</b></span><button type="button" data-open-community-vicinity><i class="ph ph-map-trifold" aria-hidden="true"></i> 查看街区地图</button><a href="${location.externalUrl}" target="_blank" rel="noreferrer"><i class="ph ph-arrow-square-out" aria-hidden="true"></i> 在 OSM 打开</a></div><ol class="nearby-community-list">${nearby}</ol><p>位置基于公开坐标；地图展示道路与公开配套要素，教育资格、医疗等级及实际步行距离需另行核验。</p>`
       communityLocation.hidden = false
-      loadCommunityVicinityMap(sample, location.embedUrl)
+      if (openVicinity) loadCommunityVicinityMap(sample, location.embedUrl)
     } else {
       closeCommunityLocation()
       if (activeDistrict) {
@@ -701,10 +764,14 @@ export async function initHeroMap3d(host: HTMLElement) {
       statusStats.innerHTML = `<span><small>社区品质 × 65%</small><b>${scoreBreakdown.qualityScore} / 100</b></span><span><small>价格机会 × 25%</small><b>${scoreBreakdown.priceOpportunityScore} / 100</b></span><span><small>流动性 × 10%</small><b>${scoreBreakdown.liquidityScore} / 100</b></span>${priceEvidence}<span><small>折价 · 180天成交 / 可比</small><b>${evidenceValue}</b></span><span><small>五维证据覆盖</small><b>${scoreBreakdown.evidenceCoverage}% · 缺失项待补</b></span>`
     }
     renderCommunityMarkers(sample.district)
-    if (interactionHint) interactionHint.innerHTML = '<i class="ph ph-map-pin"></i> 已进入小区周边 · 可切换相邻小区'
+    if (interactionHint) interactionHint.innerHTML = openVicinity
+      ? '<i class="ph ph-map-pin"></i> 已进入街区地图 · 可切换相邻小区'
+      : `<i class="ph ph-magnifying-glass-plus"></i> 区域已放大 ${communityViewport.zoom.toFixed(2)}× · 点击其他点继续查看`
     if (exitButton && activeDistrict) {
-      exitButton.innerHTML = `<i class="ph ph-arrow-left" aria-hidden="true"></i> 返回${escapeHtml(districts[activeDistrict].name)}`
-      exitButton.setAttribute('aria-label', `返回${districts[activeDistrict].name}小区价值地图`)
+      exitButton.innerHTML = openVicinity
+        ? '<i class="ph ph-arrow-left" aria-hidden="true"></i> 返回小区点位'
+        : `<i class="ph ph-arrow-left" aria-hidden="true"></i> 返回${escapeHtml(districts[activeDistrict].name)}`
+      exitButton.setAttribute('aria-label', openVicinity ? `返回${sample.name}点位地图` : `返回${districts[activeDistrict].name}小区价值地图`)
     }
   }
 
@@ -714,6 +781,8 @@ export async function initHeroMap3d(host: HTMLElement) {
     activeDistrict = key
     activeCommunityId = null
     activeValueFilter = 'all'
+    communityViewport = { ...defaultCommunityMapViewport }
+    host.classList.remove('community-focus-active')
     host.classList.add('district-detail-active')
     host.dataset.activeDistrict = key
     host.querySelectorAll<HTMLButtonElement>('[data-map-district]').forEach((button) => {
@@ -737,6 +806,12 @@ export async function initHeroMap3d(host: HTMLElement) {
     if (drag.moved) return
     const targetElement = event.target as HTMLElement
     if (targetElement.closest('#exitMapWorkspace')) return
+    const vicinityButton = targetElement.closest<HTMLButtonElement>('[data-open-community-vicinity]')
+    if (vicinityButton && activeDistrict && activeCommunityId) {
+      const sample = getCommunitySamples(activeDistrict, activeCommunities).find((item) => item.id === activeCommunityId)
+      if (sample) selectCommunity(sample, true)
+      return
+    }
     const navigationButton = targetElement.closest<HTMLButtonElement>('[data-community-direction]')
     if (navigationButton) {
       navigateCommunity(navigationButton.dataset.communityDirection as CommunityNavigationDirection)
@@ -745,7 +820,7 @@ export async function initHeroMap3d(host: HTMLElement) {
     const communityButton = targetElement.closest<HTMLButtonElement>('[data-community-id]')
     if (communityButton && activeDistrict) {
       const sample = getCommunitySamples(activeDistrict, activeCommunities).find((item) => item.id === communityButton.dataset.communityId)
-      if (sample) selectCommunity(sample)
+      if (sample) selectCommunity(sample, activeCommunityId === sample.id && host.classList.contains('community-focus-active'))
       return
     }
     if (targetElement === communityDots && activeDistrict) {
@@ -757,7 +832,9 @@ export async function initHeroMap3d(host: HTMLElement) {
         const distance = Math.hypot(dot.x - x, dot.y - y)
         return !result || distance < result.distance ? { dot, distance } : result
       }, null)
-      if (closest && closest.distance <= 15) selectCommunity(closest.dot.sample)
+      if (closest && closest.distance <= 15) {
+        selectCommunity(closest.dot.sample, activeCommunityId === closest.dot.sample.id && host.classList.contains('community-focus-active'))
+      }
       return
     }
     const filterButton = targetElement.closest<HTMLButtonElement>('[data-value-filter]')
@@ -796,6 +873,8 @@ export async function initHeroMap3d(host: HTMLElement) {
       activeCommunities = dataset.communities
       activeCommunityId = null
       activeValueFilter = 'all'
+      communityViewport = { ...defaultCommunityMapViewport }
+      host.classList.remove('community-focus-active')
       updateDatasetPresentation(dataset)
       if (dataImportStatus) dataImportStatus.textContent = '已在本地加载，不会上传'
       if (activeDistrict) {
@@ -823,6 +902,8 @@ export async function initHeroMap3d(host: HTMLElement) {
       activeCommunities = dataset.communities
       activeCommunityId = null
       activeValueFilter = 'all'
+      communityViewport = { ...defaultCommunityMapViewport }
+      host.classList.remove('community-focus-active')
       host.dataset.communityDataReady = 'true'
       updateDatasetPresentation(dataset)
       if (dataMode) {
@@ -847,7 +928,8 @@ export async function initHeroMap3d(host: HTMLElement) {
     activeDistrict = null
     activeCommunityId = null
     activeValueFilter = 'all'
-    host.classList.remove('district-detail-active')
+    communityViewport = { ...defaultCommunityMapViewport }
+    host.classList.remove('district-detail-active', 'community-focus-active')
     delete host.dataset.activeDistrict
     applyMapViewPose(target, { x: -0.035, y: -0.055, z: -0.015, scale: 1, positionX: 0, positionY: 0 })
     host.querySelectorAll<HTMLButtonElement>('[data-map-district]').forEach((button) => {
@@ -868,6 +950,8 @@ export async function initHeroMap3d(host: HTMLElement) {
       exitButton.setAttribute('aria-label', '返回北京全图')
     }
     if (communityLayer) { communityLayer.hidden = true; communityLayer.innerHTML = '' }
+    communityHitLayer.hidden = true
+    communityHitLayer.innerHTML = ''
     communityStepper.hidden = true
     closeCommunityLocation()
     if (communityDots) {

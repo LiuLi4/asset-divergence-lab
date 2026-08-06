@@ -2288,6 +2288,7 @@ body {
 }
 
 .community-drill-approaching .community-value-layer,
+.community-drill-approaching .community-point-hit-layer,
 .community-drill-approaching .community-value-dots,
 .community-drill-approaching .map-hotspots,
 .community-drill-approaching .map-value-legend,
@@ -2321,6 +2322,7 @@ body {
 .community-location-active .hero-map-fallback,
 .community-location-active .map-hotspots,
 .community-location-active .community-value-dots,
+.community-location-active .community-point-hit-layer,
 .community-location-active .community-value-layer,
 .community-location-active .map-value-legend,
 .community-location-active .map-controls {
@@ -5462,7 +5464,7 @@ main {
 
 .community-location-metrics {
   display: grid;
-  grid-template-columns: minmax(0, 1.4fr) minmax(90px, 0.7fr) auto;
+  grid-template-columns: minmax(0, 1.4fr) minmax(90px, 0.7fr) auto auto;
   align-items: center;
   gap: 7px;
 }
@@ -5490,7 +5492,8 @@ main {
   white-space: nowrap;
 }
 
-.community-location-metrics a {
+.community-location-metrics a,
+.community-location-metrics button {
   display: inline-flex;
   min-height: 34px;
   align-items: center;
@@ -5507,7 +5510,9 @@ main {
 }
 
 .community-location-metrics a:hover,
-.community-location-metrics a:focus-visible {
+.community-location-metrics a:focus-visible,
+.community-location-metrics button:hover,
+.community-location-metrics button:focus-visible {
   border-color: rgba(43, 22, 73, 0.42);
   background: #fff;
   outline: 2px solid rgba(43, 22, 73, 0.2);
@@ -5818,8 +5823,8 @@ main {
     gap: 2px;
   }
 
-  .community-location-metrics a {
-    grid-column: 1 / -1;
+  .community-location-metrics a,
+  .community-location-metrics button {
     min-height: 44px;
   }
 
@@ -5877,9 +5882,90 @@ main {
 }
 
 /* Community purchase-value layer */
-.community-value-layer {
+.community-point-hit-layer {
   position: absolute;
   z-index: 5;
+  inset: 0;
+  pointer-events: none;
+  transition: opacity 360ms ease;
+}
+
+.community-point-hit {
+  --point-color: #786991;
+  position: absolute;
+  top: var(--point-y);
+  left: var(--point-x);
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  cursor: zoom-in;
+  pointer-events: auto;
+  transform: translate(-50%, -50%);
+}
+
+.community-point-hit::before {
+  position: absolute;
+  inset: 5px;
+  border: 2px solid #fff;
+  border-radius: 50%;
+  background: var(--point-color);
+  box-shadow: 0 0 0 1px var(--point-color), 0 5px 14px color-mix(in srgb, var(--point-color) 24%, transparent);
+  content: '';
+  opacity: 0;
+  transform: scale(0.72);
+  transition: opacity 140ms ease, transform 180ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.community-point-hit::after {
+  position: absolute;
+  bottom: calc(100% + 5px);
+  left: 50%;
+  max-width: 150px;
+  padding: 5px 8px;
+  overflow: hidden;
+  border: 1px solid rgba(43, 22, 73, 0.14);
+  border-radius: 999px;
+  background: rgba(250, 247, 252, 0.94);
+  color: var(--hero-ink);
+  box-shadow: 0 8px 20px rgba(55, 30, 79, 0.12);
+  content: attr(data-point-label);
+  font-size: 9px;
+  font-weight: 700;
+  opacity: 0;
+  pointer-events: none;
+  text-overflow: ellipsis;
+  transform: translate(-50%, 4px);
+  transition: opacity 140ms ease, transform 180ms ease;
+  white-space: nowrap;
+}
+
+.community-point-hit:hover,
+.community-point-hit.active {
+  z-index: 2;
+}
+
+.community-point-hit:hover::before,
+.community-point-hit.active::before {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.community-point-hit:hover::after {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+
+.community-point-hit.tier-strong { --point-color: #147a5d; }
+.community-point-hit.tier-watch { --point-color: #a66b16; }
+.community-point-hit.tier-cautious { --point-color: #b44b59; }
+.community-point-hit.tier-insufficient { --point-color: #786991; }
+
+.community-value-layer {
+  position: absolute;
+  z-index: 6;
   inset: 0;
   pointer-events: none;
   transition: opacity 360ms ease;
@@ -5903,6 +5989,7 @@ main {
 }
 
 .community-value-dots[hidden],
+.community-point-hit-layer[hidden],
 .community-value-layer[hidden],
 .map-value-legend[hidden] {
   display: none;
