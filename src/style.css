@@ -2143,7 +2143,7 @@ body {
   width: 100%;
   height: 100%;
   opacity: 0;
-  transition: opacity 260ms ease;
+  transition: opacity 420ms cubic-bezier(0.22, 1, 0.36, 1), filter 420ms ease;
 }
 
 .hero-map-interactive.map-3d-ready #heroMapCanvas,
@@ -2161,19 +2161,143 @@ body {
   inset: 0;
   overflow: hidden;
   background: #eee9f1;
-  opacity: 1;
-  transition: opacity 260ms ease;
+  opacity: 0;
+  pointer-events: none;
+  transform: scale(1.018);
+  transition: opacity 460ms cubic-bezier(0.22, 1, 0.36, 1), transform 680ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .community-local-map[hidden] {
   display: none;
 }
 
+.community-local-map-frames,
 .community-local-map iframe {
+  position: absolute;
+  inset: 0;
   width: 100%;
   height: 100%;
+}
+
+.community-local-map iframe {
   border: 0;
   filter: saturate(0.72) contrast(0.96) brightness(1.04);
+}
+
+.community-local-map-frame {
+  opacity: 0;
+  transform: scale(1.012);
+  transition: opacity 420ms ease, transform 620ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.community-local-map-frame.is-current {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.community-local-map-frame.is-exiting {
+  opacity: 0;
+  transform: scale(0.992);
+}
+
+.community-drill-progress {
+  position: absolute;
+  z-index: 2;
+  top: 28px;
+  left: 50%;
+  display: inline-flex;
+  min-height: 38px;
+  align-items: center;
+  gap: 8px;
+  padding: 0 14px;
+  border: 1px solid rgba(43, 22, 73, 0.12);
+  border-radius: 999px;
+  background: rgba(250, 247, 252, 0.92);
+  color: var(--hero-ink);
+  font-size: 11px;
+  font-weight: 700;
+  opacity: 0;
+  pointer-events: none;
+  transform: translate(-50%, -8px);
+  transition: opacity 220ms ease, transform 220ms ease;
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+}
+
+.community-local-map[aria-busy='true'] .community-drill-progress {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+
+.community-drill-progress i {
+  color: #6d4aff;
+  font-size: 14px;
+  animation: community-drill-pulse 1s ease-in-out infinite alternate;
+}
+
+.community-drill-indicator {
+  position: absolute;
+  z-index: 7;
+  top: var(--drill-y, 50%);
+  left: var(--drill-x, 50%);
+  display: grid;
+  justify-items: center;
+  color: var(--hero-ink);
+  opacity: 0;
+  pointer-events: none;
+  transform: translate(-50%, -50%) scale(0.82);
+  transition: opacity 280ms ease, transform 520ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.community-drill-indicator[hidden] {
+  display: none;
+}
+
+.community-drill-indicator i {
+  display: block;
+  width: 24px;
+  height: 24px;
+  border: 5px solid rgba(255, 255, 255, 0.9);
+  border-radius: 50%;
+  background: #6d4aff;
+  box-shadow: 0 0 0 1px rgba(43, 22, 73, 0.24), 0 0 0 12px rgba(109, 74, 255, 0.14), 0 14px 36px rgba(43, 22, 73, 0.24);
+}
+
+.community-drill-indicator span {
+  margin-top: 16px;
+  padding: 7px 11px;
+  border: 1px solid rgba(43, 22, 73, 0.12);
+  border-radius: 999px;
+  background: rgba(250, 247, 252, 0.9);
+  font-size: 10px;
+  font-weight: 800;
+  white-space: nowrap;
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+}
+
+.community-drill-approaching .community-drill-indicator {
+  opacity: 1;
+  transform: translate(-50%, -50%) scale(1);
+}
+
+.community-location-active .community-local-map {
+  opacity: 1;
+  pointer-events: auto;
+  transform: scale(1);
+}
+
+.community-drill-approaching .community-value-layer,
+.community-drill-approaching .community-value-dots,
+.community-drill-approaching .map-hotspots,
+.community-drill-approaching .map-value-legend,
+.community-drill-approaching .map-controls {
+  opacity: 0.18;
+  pointer-events: none;
+}
+
+.community-vicinity-switching .community-local-map-frame.is-current:not(.is-pending) {
+  filter: saturate(0.72) contrast(0.96) brightness(1.04) blur(1px);
 }
 
 .community-local-map > span {
@@ -2201,8 +2325,12 @@ body {
 .community-location-active .map-value-legend,
 .community-location-active .map-controls {
   opacity: 0;
-  visibility: hidden;
   pointer-events: none;
+}
+
+@keyframes community-drill-pulse {
+  from { transform: translateY(2px); }
+  to { transform: translateY(-2px); }
 }
 
 .hero-map-fallback {
@@ -2214,6 +2342,7 @@ body {
   z-index: 4;
   inset: 0;
   pointer-events: none;
+  transition: opacity 360ms ease;
 }
 
 .map-label,
@@ -2324,6 +2453,7 @@ button.map-label.active::after {
   color: var(--hero-muted);
   font-size: 10px;
   pointer-events: none;
+  transition: opacity 360ms ease;
 }
 
 .map-controls span {
@@ -5752,6 +5882,7 @@ main {
   z-index: 5;
   inset: 0;
   pointer-events: none;
+  transition: opacity 360ms ease;
 }
 
 .hero.reference-hero .hero-map-visual canvas.community-value-dots {
@@ -5888,6 +6019,7 @@ main {
   backdrop-filter: blur(14px) saturate(125%);
   box-shadow: 0 12px 30px rgba(55, 30, 79, 0.1);
   pointer-events: auto;
+  transition: opacity 360ms ease;
 }
 
 .map-value-legend > div:first-child {

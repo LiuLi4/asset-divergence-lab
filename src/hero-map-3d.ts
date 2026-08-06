@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import { applyMapViewPose, resolveCommunityDrillPose, resolveDistrictMapPose, type MapViewPose } from './community-drilldown'
 import { buildCommunityLocationContext } from './community-map-context'
 import { getCommunityNavigationState, navigateCommunitySelection, type CommunityNavigationDirection } from './community-navigation'
 import {
@@ -150,10 +151,17 @@ export async function initHeroMap3d(host: HTMLElement) {
   const localMap = document.createElement('section')
   localMap.className = 'community-local-map'
   localMap.setAttribute('aria-label', '所选小区的道路与周边公开地图')
+  localMap.setAttribute('aria-busy', 'false')
   localMap.hidden = true
-  localMap.innerHTML = '<iframe loading="lazy" referrerpolicy="strict-origin-when-cross-origin" title="所选小区周边地图"></iframe><span><i class="ph ph-map-pin" aria-hidden="true"></i> 道路与公开配套 · OpenStreetMap</span>'
+  localMap.innerHTML = '<div class="community-local-map-frames"></div><div class="community-drill-progress" aria-live="polite"><i class="ph ph-navigation-arrow" aria-hidden="true"></i><span>正在下钻到小区周边</span></div><span><i class="ph ph-map-pin" aria-hidden="true"></i> 道路与公开配套 · OpenStreetMap</span>'
   host.querySelector('.map-hotspots')?.before(localMap)
-  const localMapFrame = localMap.querySelector<HTMLIFrameElement>('iframe')
+  const localMapFrames = localMap.querySelector<HTMLElement>('.community-local-map-frames')
+
+  const drillIndicator = document.createElement('div')
+  drillIndicator.className = 'community-drill-indicator'
+  drillIndicator.hidden = true
+  drillIndicator.innerHTML = '<i aria-hidden="true"></i><span>正在下钻</span>'
+  localMap.before(drillIndicator)
 
   const communityLocation = document.createElement('section')
   communityLocation.className = 'community-location-context'
@@ -199,7 +207,7 @@ export async function initHeroMap3d(host: HTMLElement) {
   mapGroup.rotation.set(-0.035, -0.055, -0.015)
   scene.add(mapGroup)
 
-  const target = { x: -0.035, y: -0.055, z: -0.015, scale: 1, positionX: 0, positionY: 0 }
+  const target: MapViewPose = { x: -0.035, y: -0.055, z: -0.015, scale: 1, positionX: 0, positionY: 0 }
   const pointer = { x: 0, y: 0 }
   const drag = { active: false, moved: false, id: -1, startX: 0, startY: 0, rotationX: 0, rotationY: 0 }
   let disposed = false
@@ -220,11 +228,126 @@ export async function initHeroMap3d(host: HTMLElement) {
   let renderedDots: CommunityDot[] = []
   let redrawCommunityLayer = () => undefined
   let updateCommunityNavigator = () => undefined
+  let activeLocalMapFrame: HTMLIFrameElement | null = null
+  let drillRequestId = 0
+  let drillCleanupTimer = 0
+  let drillCommitTimer = 0
+  let osmPreconnected = false
+  let returnToDistrictView = () => undefined
 
-  const closeCommunityLocation = () => {
-    host.classList.remove('community-location-active')
+  const clearDrillTimers = () => {
+    window.clearTimeout(drillCleanupTimer)
+    window.clearTimeout(drillCommitTimer)
+  }
+
+  const finishClosingCommunityLocation = () => {
+    host.classList.remove('community-location-active', 'community-drill-approaching', 'community-drill-entering', 'community-drill-returning', 'community-vicinity-switching')
     localMap.hidden = true
+    localMap.setAttribute('aria-busy', 'false')
     communityLocation.hidden = true
+    drillIndicator.hidden = true
+    localMapFrames?.replaceChildren()
+    activeLocalMapFrame = null
+  }
+
+  const closeCommunityLocation = (animate = false) => {
+    drillRequestId += 1
+    clearDrillTimers()
+    if (animate && host.classList.contains('community-location-active') && !reducedMotion) {
+      host.classList.remove('community-location-active', 'community-drill-entering', 'community-vicinity-switching')
+      host.classList.add('community-drill-returning')
+      localMap.setAttribute('aria-busy', 'false')
+      communityLocation.hidden = true
+      drillIndicator.hidden = true
+      drillCleanupTimer = window.setTimeout(finishClosingCommunityLocation, 460)
+      return
+    }
+    finishClosingCommunityLocation()
+  }
+
+  const preconnectOpenStreetMap = () => {
+    if (osmPreconnected) return
+    osmPreconnected = true
+    const connectionHint = document.createElement('link')
+    connectionHint.rel = 'preconnect'
+    connectionHint.href = 'https://www.openstreetmap.org'
+    connectionHint.crossOrigin = 'anonymous'
+    document.head.append(connectionHint)
+  }
+
+  const createLocalMapFrame = (title: string) => {
+    const frame = document.createElement('iframe')
+    frame.className = 'community-local-map-frame is-pending'
+    frame.loading = 'eager'
+    frame.referrerPolicy = 'strict-origin-when-cross-origin'
+    frame.title = title
+    return frame
+  }
+
+  const loadCommunityVicinityMap = (sample: CommunityValueSample, embedUrl: string) => {
+    if (!localMapFrames) return
+    preconnectOpenStreetMap()
+    const requestId = ++drillRequestId
+    const switching = host.classList.contains('community-location-active')
+    const point = resolveCommunityPosition(sample)
+    const districtInfo = districts[sample.district]
+    const districtPose = resolveDistrictMapPose(districtInfo.focus, districtInfo.offset, host.clientWidth)
+    const drillPose = resolveCommunityDrillPose(districtPose, point, host.clientWidth)
+    const startedAt = performance.now()
+    const pendingFrame = createLocalMapFrame(`${sample.name}周边道路与公开配套地图`)
+    const progressLabel = localMap.querySelector<HTMLElement>('.community-drill-progress span')
+
+    clearDrillTimers()
+    localMapFrames.querySelectorAll('.is-pending, .is-exiting').forEach((frame) => frame.remove())
+    localMap.hidden = false
+    localMap.setAttribute('aria-busy', 'true')
+    if (progressLabel) progressLabel.textContent = `正在下钻到${sample.name}周边`
+    drillIndicator.style.setProperty('--drill-x', `${point.x}%`)
+    drillIndicator.style.setProperty('--drill-y', `${point.y}%`)
+    const indicatorLabel = drillIndicator.querySelector<HTMLElement>('span')
+    if (indicatorLabel) indicatorLabel.textContent = `下钻 ${sample.name}`
+
+    if (switching) {
+      host.classList.add('community-vicinity-switching')
+    } else {
+      drillIndicator.hidden = false
+      host.classList.add('community-drill-approaching')
+      applyMapViewPose(target, drillPose)
+    }
+
+    localMapFrames.append(pendingFrame)
+
+    let committed = false
+    const commitFrame = () => {
+      if (committed || requestId !== drillRequestId) return
+      const minimumApproachMs = switching || reducedMotion ? 0 : 520
+      const remaining = Math.max(0, minimumApproachMs - (performance.now() - startedAt))
+      window.clearTimeout(drillCommitTimer)
+      drillCommitTimer = window.setTimeout(() => {
+        if (requestId !== drillRequestId) return
+        committed = true
+        const previousFrame = activeLocalMapFrame
+        activeLocalMapFrame = pendingFrame
+        pendingFrame.classList.remove('is-pending')
+        pendingFrame.classList.add('is-current')
+        previousFrame?.classList.add('is-exiting')
+        host.classList.remove('community-drill-approaching')
+        host.classList.add('community-location-active', 'community-drill-entering')
+        localMap.setAttribute('aria-busy', 'false')
+        drillIndicator.hidden = true
+        drillCleanupTimer = window.setTimeout(() => {
+          if (requestId !== drillRequestId) return
+          localMapFrames.querySelectorAll('iframe').forEach((frame) => {
+            if (frame !== activeLocalMapFrame) frame.remove()
+          })
+          host.classList.remove('community-drill-entering', 'community-vicinity-switching')
+        }, reducedMotion ? 0 : 460)
+      }, remaining)
+    }
+
+    pendingFrame.addEventListener('load', commitFrame, { once: true })
+    pendingFrame.src = embedUrl
+    drillCommitTimer = window.setTimeout(commitFrame, 3_200)
   }
 
   const updateDatasetPresentation = (dataset: CommunityValueDataset) => {
@@ -319,9 +442,7 @@ export async function initHeroMap3d(host: HTMLElement) {
   const onKeyDown = (event: KeyboardEvent) => {
     if (event.key === 'Escape' && host.classList.contains('map-workspace-active')) {
       if (activeCommunityId && activeDistrict) {
-        activeCommunityId = null
-        renderCommunityMarkers(activeDistrict)
-        showDistrictSummary(activeDistrict)
+        returnToDistrictView()
       } else if (host.classList.contains('district-detail-active')) {
         reset()
         host.focus()
@@ -485,8 +606,8 @@ export async function initHeroMap3d(host: HTMLElement) {
     if (activeDistrict) renderCommunityMarkers(activeDistrict)
   }
 
-  const showDistrictSummary = (key: DistrictKey) => {
-    closeCommunityLocation()
+  const showDistrictSummary = (key: DistrictKey, closeLocation = true) => {
+    if (closeLocation) closeCommunityLocation()
     const info = districts[key]
     const samples = getCommunitySamples(key, activeCommunities)
     const scoredSamples = samples.filter((sample) => sample.dataStatus !== 'insufficient')
@@ -503,6 +624,22 @@ export async function initHeroMap3d(host: HTMLElement) {
     if (statusStats) {
       statusStats.hidden = false
       statusStats.innerHTML = `<span><small>全部 / 已评分</small><b>${samples.length.toLocaleString('zh-CN')} / ${scoredSamples.length.toLocaleString('zh-CN')}</b></span><span><small>优先核验 / 数据不足</small><b>${strongCount.toLocaleString('zh-CN')} / ${insufficientCount.toLocaleString('zh-CN')}</b></span><span><small>数据截至 / 来源</small><b>${formatDataDate(activeDataset.updatedAt)} · ${escapeHtml(activeDataset.sourceName)}</b></span>`
+    }
+  }
+
+  returnToDistrictView = () => {
+    if (!activeDistrict) return
+    const key = activeDistrict
+    const info = districts[key]
+    activeCommunityId = null
+    applyMapViewPose(target, resolveDistrictMapPose(info.focus, info.offset, host.clientWidth))
+    closeCommunityLocation(true)
+    showDistrictSummary(key, false)
+    renderCommunityMarkers(key)
+    if (interactionHint) interactionHint.innerHTML = '<i class="ph ph-cursor-click"></i> 点击小区查看价值 · 拖拽旋转'
+    if (exitButton) {
+      exitButton.innerHTML = '<i class="ph ph-arrow-left" aria-hidden="true"></i> 北京全图'
+      exitButton.setAttribute('aria-label', '返回北京全图')
     }
   }
 
@@ -528,11 +665,7 @@ export async function initHeroMap3d(host: HTMLElement) {
       : `${escapeHtml(sample.name)}<em>${score}分 · ${purchaseValueBands[tier].label}</em>`
     if (statusSummary) statusSummary.textContent = `${sample.zone} · 重点核验：${sample.watch}`
     const location = buildCommunityLocationContext(sample, activeCommunities)
-    if (location && localMapFrame) {
-      host.classList.add('community-location-active')
-      localMap.hidden = false
-      localMapFrame.title = `${sample.name}周边道路与公开配套地图`
-      localMapFrame.src = location.embedUrl
+    if (location) {
       const nearby = location.nearby.length
         ? location.nearby.map(({ community, distanceKm }, index) => `<li><i>${index + 1}</i><span><b>${escapeHtml(community.name)}</b><small>${escapeHtml(community.zone)} · ${distanceKm < 1 ? `${Math.round(distanceKm * 1_000)}m` : `${distanceKm.toFixed(1)}km`}</small></span></li>`).join('')
         : '<li class="empty">暂无可定位的周边小区参照</li>'
@@ -546,8 +679,13 @@ export async function initHeroMap3d(host: HTMLElement) {
         : '缺少坐标，暂不能计算核心工作区距离。'
       communityLocation.innerHTML = `<div class="community-score-model"><div><b>五维品质证据</b><small>当前覆盖 ${scoreBreakdown.evidenceCoverage}% · 缺失项不默认给分</small></div><div class="community-dimension-grid">${dimensionScores}</div><p>${employmentEvidence} 周边新房、医院等级、户型朝向和人车分流需补充结构化证据。</p></div><div class="community-location-metrics"><span><small>商圈 / 坐标</small><b>${escapeHtml(sample.zone)} · ${location.coordinateLabel}</b></span><span><small>500m / 1km 内小区</small><b>${location.within500m} / ${location.within1km}</b></span><a href="${location.externalUrl}" target="_blank" rel="noreferrer"><i class="ph ph-arrow-square-out" aria-hidden="true"></i> 打开周边地图</a></div><ol class="nearby-community-list">${nearby}</ol><p>位置基于公开坐标；地图展示道路与公开配套要素，教育资格、医疗等级及实际步行距离需另行核验。</p>`
       communityLocation.hidden = false
+      loadCommunityVicinityMap(sample, location.embedUrl)
     } else {
       closeCommunityLocation()
+      if (activeDistrict) {
+        const info = districts[activeDistrict]
+        applyMapViewPose(target, resolveDistrictMapPose(info.focus, info.offset, host.clientWidth))
+      }
     }
     if (statusStats) {
       statusStats.hidden = false
@@ -563,6 +701,11 @@ export async function initHeroMap3d(host: HTMLElement) {
       statusStats.innerHTML = `<span><small>社区品质 × 65%</small><b>${scoreBreakdown.qualityScore} / 100</b></span><span><small>价格机会 × 25%</small><b>${scoreBreakdown.priceOpportunityScore} / 100</b></span><span><small>流动性 × 10%</small><b>${scoreBreakdown.liquidityScore} / 100</b></span>${priceEvidence}<span><small>折价 · 180天成交 / 可比</small><b>${evidenceValue}</b></span><span><small>五维证据覆盖</small><b>${scoreBreakdown.evidenceCoverage}% · 缺失项待补</b></span>`
     }
     renderCommunityMarkers(sample.district)
+    if (interactionHint) interactionHint.innerHTML = '<i class="ph ph-map-pin"></i> 已进入小区周边 · 可切换相邻小区'
+    if (exitButton && activeDistrict) {
+      exitButton.innerHTML = `<i class="ph ph-arrow-left" aria-hidden="true"></i> 返回${escapeHtml(districts[activeDistrict].name)}`
+      exitButton.setAttribute('aria-label', `返回${districts[activeDistrict].name}小区价值地图`)
+    }
   }
 
   const selectDistrict = (key: DistrictKey) => {
@@ -578,17 +721,15 @@ export async function initHeroMap3d(host: HTMLElement) {
       button.classList.toggle('active', selected)
       button.setAttribute('aria-pressed', String(selected))
     })
-    target.x = info.focus[0]
-    target.y = info.focus[1]
-    target.positionX = info.offset[0]
-    target.positionY = info.offset[1]
-    target.scale = host.clientWidth < 600 ? 1.22 : 1.52
+    applyMapViewPose(target, resolveDistrictMapPose(info.focus, info.offset, host.clientWidth))
     renderCommunityMarkers(key)
     showDistrictSummary(key)
     if (interactionHint) interactionHint.innerHTML = '<i class="ph ph-cursor-click"></i> 点击小区查看价值 · 拖拽旋转'
     if (exitButton) {
       exitButton.hidden = false
       exitButton.setAttribute('aria-hidden', 'false')
+      exitButton.innerHTML = '<i class="ph ph-arrow-left" aria-hidden="true"></i> 北京全图'
+      exitButton.setAttribute('aria-label', '返回北京全图')
     }
   }
 
@@ -626,8 +767,7 @@ export async function initHeroMap3d(host: HTMLElement) {
         ? getCommunitySamples(activeDistrict, activeCommunities).find((sample) => sample.id === activeCommunityId)
         : undefined
       if (selectedSample && activeValueFilter !== 'all' && getCommunityTier(selectedSample) !== activeValueFilter) {
-        activeCommunityId = null
-        showDistrictSummary(activeDistrict)
+        returnToDistrictView()
       }
       renderCommunityMarkers(activeDistrict)
       return
@@ -638,6 +778,11 @@ export async function initHeroMap3d(host: HTMLElement) {
       return
     }
     if (!host.classList.contains('map-workspace-active')) enterMapWorkspace()
+  }
+
+  const onMapIntent = (event: Event) => {
+    const targetElement = event.target as HTMLElement
+    if (targetElement.closest('[data-community-id]')) preconnectOpenStreetMap()
   }
 
   const importCommunityData = async () => {
@@ -654,6 +799,8 @@ export async function initHeroMap3d(host: HTMLElement) {
       updateDatasetPresentation(dataset)
       if (dataImportStatus) dataImportStatus.textContent = '已在本地加载，不会上传'
       if (activeDistrict) {
+        const info = districts[activeDistrict]
+        applyMapViewPose(target, resolveDistrictMapPose(info.focus, info.offset, host.clientWidth))
         renderCommunityMarkers(activeDistrict)
         showDistrictSummary(activeDistrict)
       }
@@ -683,6 +830,8 @@ export async function initHeroMap3d(host: HTMLElement) {
       }
       if (dataImportStatus) dataImportStatus.textContent = `${dataset.sourceName} · 已授权发布`
       if (activeDistrict) {
+        const info = districts[activeDistrict]
+        applyMapViewPose(target, resolveDistrictMapPose(info.focus, info.offset, host.clientWidth))
         renderCommunityMarkers(activeDistrict)
         showDistrictSummary(activeDistrict)
       }
@@ -700,12 +849,7 @@ export async function initHeroMap3d(host: HTMLElement) {
     activeValueFilter = 'all'
     host.classList.remove('district-detail-active')
     delete host.dataset.activeDistrict
-    target.x = -0.035
-    target.y = -0.055
-    target.z = -0.015
-    target.scale = 1
-    target.positionX = 0
-    target.positionY = 0
+    applyMapViewPose(target, { x: -0.035, y: -0.055, z: -0.015, scale: 1, positionX: 0, positionY: 0 })
     host.querySelectorAll<HTMLButtonElement>('[data-map-district]').forEach((button) => {
       button.classList.remove('active')
       button.setAttribute('aria-pressed', 'false')
@@ -720,6 +864,8 @@ export async function initHeroMap3d(host: HTMLElement) {
     if (exitButton) {
       exitButton.hidden = true
       exitButton.setAttribute('aria-hidden', 'true')
+      exitButton.innerHTML = '<i class="ph ph-arrow-left" aria-hidden="true"></i> 北京全图'
+      exitButton.setAttribute('aria-label', '返回北京全图')
     }
     if (communityLayer) { communityLayer.hidden = true; communityLayer.innerHTML = '' }
     communityStepper.hidden = true
@@ -733,6 +879,8 @@ export async function initHeroMap3d(host: HTMLElement) {
     if (interactionHint) interactionHint.innerHTML = '<i class="ph ph-cursor-click"></i> 点击区县进入详情 · 拖拽旋转'
   }
 
+  const onExitDistrictMap = () => activeCommunityId ? returnToDistrictView() : reset()
+
   host.addEventListener('pointerdown', onPointerDown)
   host.addEventListener('pointermove', onPointerMove, { passive: true })
   host.addEventListener('pointerup', finishDrag)
@@ -740,8 +888,10 @@ export async function initHeroMap3d(host: HTMLElement) {
   host.addEventListener('pointerleave', onPointerLeave)
   host.addEventListener('keydown', onKeyDown)
   host.addEventListener('click', onMapClick)
+  host.addEventListener('pointerover', onMapIntent, { passive: true })
+  host.addEventListener('focusin', onMapIntent)
   resetButton?.addEventListener('click', reset)
-  exitButton?.addEventListener('click', reset)
+  exitButton?.addEventListener('click', onExitDistrictMap)
   workspaceExitButton?.addEventListener('click', exitMapWorkspace)
   dataFile?.addEventListener('change', importCommunityData)
   void loadDefaultCommunityData()
@@ -778,6 +928,7 @@ export async function initHeroMap3d(host: HTMLElement) {
 
   return () => {
     disposed = true
+    clearDrillTimers()
     stop()
     resizeObserver.disconnect()
     intersectionObserver.disconnect()
@@ -791,8 +942,10 @@ export async function initHeroMap3d(host: HTMLElement) {
     host.removeEventListener('pointerleave', onPointerLeave)
     host.removeEventListener('keydown', onKeyDown)
     host.removeEventListener('click', onMapClick)
+    host.removeEventListener('pointerover', onMapIntent)
+    host.removeEventListener('focusin', onMapIntent)
     resetButton?.removeEventListener('click', reset)
-    exitButton?.removeEventListener('click', reset)
+    exitButton?.removeEventListener('click', onExitDistrictMap)
     workspaceExitButton?.removeEventListener('click', exitMapWorkspace)
     document.documentElement.classList.remove('map-workspace-open')
     document.body.classList.remove('map-workspace-open')
