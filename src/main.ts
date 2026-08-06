@@ -244,7 +244,7 @@ function render() {
   const result = calculateFinance(inputs, viewMode)
   const commercialLoan = result.commercialLoan
   const heroMapUrl = `${import.meta.env.BASE_URL}assets/beijing-map-transparent.webp`
-  const brandLogoUrl = `${import.meta.env.BASE_URL}assets/asset-divergence-logo-v2.svg`
+  const brandLogoUrl = `${import.meta.env.BASE_URL}assets/asset-divergence-logo-v3.svg`
   const communityValuesUrl = `${import.meta.env.BASE_URL}data/community-values.json`
   document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
   <header class="topbar"><a class="brand" href="#top" aria-label="资产分化首页"><span class="brand-mark brand-map-logo"><img src="${brandLogoUrl}" alt="" aria-hidden="true" /></span><span class="brand-name"><b>资产分化</b><small>ASSET DIVERGENCE LAB</small></span></a><nav id="mainNav"><a href="#model">决策模型</a><a href="#taxonomy">资产分类</a><a href="#selection">选房框架</a></nav><a class="topbar-cta" href="#model">开始测算</a><button class="menu-button" aria-label="打开菜单" aria-controls="mainNav" aria-expanded="false"><i class="ph ph-list menu-open-icon"></i><i class="ph ph-x menu-close-icon"></i></button></header>
