@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "description": "房地产资产分化与买房/理财收益比较工具",
+  "license": "MIT",
   "type": "module",
   "scripts": {
     "dev": "vite",
