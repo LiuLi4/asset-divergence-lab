@@ -38,8 +38,16 @@ body {
   background: var(--paper);
   color: var(--ink);
   font-family: var(--sans);
+  font-kerning: normal;
+  font-optical-sizing: auto;
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
+}
+
+::selection {
+  background: rgba(119, 96, 179, 0.22);
+  color: var(--ink);
 }
 
 .model-section,
@@ -57,6 +65,7 @@ input {
 
 button {
   cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
 }
 
 a {
@@ -2432,8 +2441,8 @@ button.map-label.active::after {
   border-radius: 12px;
   background: rgba(248, 242, 250, 0.84);
   color: var(--hero-ink);
-  font-size: 11px;
-  line-height: 1.45;
+  font-size: 13px;
+  line-height: 1.5;
   -webkit-backdrop-filter: blur(12px);
   backdrop-filter: blur(12px);
   box-shadow: 0 10px 28px rgba(55, 30, 79, 0.09);
@@ -2441,7 +2450,7 @@ button.map-label.active::after {
 }
 
 .map-detail b {
-  font-size: 12px;
+  font-size: 14px;
 }
 
 .map-detail span {
@@ -2457,7 +2466,7 @@ button.map-label.active::after {
   align-items: center;
   gap: 8px;
   color: var(--hero-muted);
-  font-size: 10px;
+  font-size: 12px;
   pointer-events: none;
   transition: opacity 360ms ease;
 }
@@ -3163,7 +3172,12 @@ p,
 .score-ring,
 .comparison-row > strong,
 .decision-badge,
-.metric-foot b {
+.metric-foot b,
+.community-score,
+.community-stepper output,
+.map-detail-stats b,
+.taxonomy-data,
+.map-value-legend {
   font-variant-numeric: tabular-nums;
 }
 
@@ -3365,7 +3379,7 @@ p,
 }
 
 .scenario-toggle:active {
-  transform: scale(0.97);
+  transform: scale(0.96);
 }
 
 .scenario-toggle.active {
@@ -3453,20 +3467,33 @@ p,
 
 .menu-close-icon {
   opacity: 0;
-  filter: blur(3px);
-  transform: scale(0.75) rotate(-28deg);
+  filter: blur(4px);
+  transform: scale(0.25) rotate(-28deg);
 }
 
 .topbar.nav-open .menu-open-icon {
   opacity: 0;
-  filter: blur(3px);
-  transform: scale(0.75) rotate(28deg);
+  filter: blur(4px);
+  transform: scale(0.25) rotate(28deg);
 }
 
 .topbar.nav-open .menu-close-icon {
   opacity: 1;
   filter: none;
   transform: none;
+}
+
+.primary-button:active,
+.topbar-cta:active,
+.save-button:active,
+.reset-button:active,
+.growth-presets button:active,
+.source-links a:active,
+.map-controls button:active,
+.map-back-button:active,
+.community-stepper button:not(:disabled):active,
+.value-filter-row button:active {
+  transform: scale(0.96);
 }
 
 .toast-region {
@@ -3594,7 +3621,7 @@ p,
     border: 1px solid var(--line-strong);
   }
 }
-/* Layout and type system v0.4
+/* Layout and type system v0.5
    Keep the editorial purple identity, while giving the decision workflow one
    predictable reading rhythm across desktop, tablet and mobile. */
 :root {
@@ -3602,7 +3629,7 @@ p,
   --page-gutter: clamp(24px, 4vw, 56px);
   --muted: #655a73;
   --muted-light: #655a73;
-  --text-meta: 0.75rem;
+  --text-meta: 0.8125rem;
   --text-small: 0.875rem;
   --text-body: 1rem;
   --text-lead: 1.125rem;
@@ -3612,6 +3639,20 @@ p,
 body {
   font-size: var(--text-body);
   line-height: 1.65;
+}
+
+h1,
+h2,
+h3,
+h4 {
+  font-kerning: normal;
+  text-wrap: balance;
+}
+
+p,
+li,
+.map-detail-copy {
+  text-wrap: pretty;
 }
 
 .section-shell {
@@ -3697,15 +3738,15 @@ body {
   max-width: 820px;
   margin: clamp(26px, 4vh, 40px) 0 30px;
   font-size: clamp(64px, 8vw, 120px);
-  letter-spacing: -0.07em;
-  line-height: 0.88;
+  letter-spacing: -0.045em;
+  line-height: 0.92;
 }
 
 .hero h1 + p {
-  max-width: 560px;
+  max-width: 36ch;
   color: #534464;
   font-size: var(--text-lead);
-  line-height: 1.7;
+  line-height: 1.65;
 }
 
 .hero-actions {
@@ -3789,12 +3830,12 @@ body {
   max-width: 760px;
   margin-top: 18px;
   font-size: clamp(44px, 4.8vw, 68px);
-  letter-spacing: -0.055em;
-  line-height: 1.05;
+  letter-spacing: -0.035em;
+  line-height: 1.08;
 }
 
 .section-intro > p {
-  max-width: 460px;
+  max-width: 65ch;
   font-size: var(--text-body);
   line-height: 1.75;
 }
@@ -4114,7 +4155,7 @@ body {
 
 .selection-section h2 {
   font-size: clamp(44px, 4.8vw, 68px);
-  line-height: 1.05;
+  line-height: 1.08;
 }
 
 .scorecard-layout {
@@ -4412,8 +4453,8 @@ footer {
   .hero h1 {
     margin-block: 24px;
     font-size: clamp(50px, 16vw, 64px);
-    letter-spacing: -0.06em;
-    line-height: 0.92;
+    letter-spacing: -0.035em;
+    line-height: 0.96;
   }
 
   .hero h1 + p {
@@ -4596,9 +4637,9 @@ footer {
 }
 
 .hero.reference-hero .hero-copy > p {
-  max-width: 420px;
-  font-size: 15px;
-  line-height: 1.7;
+  max-width: 36ch;
+  font-size: var(--text-body);
+  line-height: 1.65;
 }
 
 .hero.reference-hero .hero-actions {
@@ -5486,12 +5527,12 @@ main {
 .nearby-community-list small,
 .community-location-context p {
   color: var(--hero-muted);
-  font-size: 8px;
+  font-size: 10px;
 }
 
 .community-location-metrics b {
   overflow: hidden;
-  font-size: 9px;
+  font-size: 11px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -5508,7 +5549,7 @@ main {
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.72);
   color: var(--hero-ink);
-  font-size: 9px;
+  font-size: 11px;
   font-weight: 700;
   text-decoration: none;
 }
@@ -5585,8 +5626,8 @@ main {
   gap: 10px;
 }
 
-.community-score-model > div:first-child b { font-size: 9px; }
-.community-score-model > div:first-child small { color: var(--hero-muted); font-size: 8px; }
+.community-score-model > div:first-child b { font-size: 11px; }
+.community-score-model > div:first-child small { color: var(--hero-muted); font-size: 10px; }
 
 .community-dimension-grid {
   display: grid;
@@ -5604,8 +5645,8 @@ main {
 }
 
 .community-dimension-grid span.missing { background: rgba(120, 105, 145, 0.08); }
-.community-dimension-grid small { color: var(--hero-muted); font-size: 7px; }
-.community-dimension-grid b { overflow: hidden; font-size: 8px; text-overflow: ellipsis; white-space: nowrap; }
+.community-dimension-grid small { color: var(--hero-muted); font-size: 9px; }
+.community-dimension-grid b { overflow: hidden; font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
 .community-dimension-grid .missing b { color: var(--hero-muted); font-weight: 600; }
 
 .map-detail-stats[hidden] {
@@ -5623,12 +5664,12 @@ main {
 
 .map-detail-stats small {
   color: var(--hero-muted);
-  font-size: 9px;
+  font-size: 10px;
 }
 
 .map-detail-stats b {
   overflow: hidden;
-  font-size: 10px;
+  font-size: 12px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -5999,7 +6040,7 @@ main {
 .community-marker-copy b {
   max-width: 106px;
   overflow: hidden;
-  font-size: 10px;
+  font-size: 11px;
   line-height: 1.25;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -6007,7 +6048,7 @@ main {
 
 .community-marker-copy small {
   color: var(--tier-color);
-  font-size: 8px;
+  font-size: 9px;
   font-weight: 700;
   line-height: 1.25;
   white-space: nowrap;
@@ -6039,12 +6080,12 @@ main {
 }
 
 .map-value-legend b {
-  font-size: 11px;
+  font-size: 13px;
 }
 
 .map-value-legend small {
   color: var(--hero-muted);
-  font-size: 8px;
+  font-size: 10px;
 }
 
 .community-data-row {
@@ -6057,7 +6098,7 @@ main {
 
 .community-data-row label {
   display: inline-flex;
-  min-height: 25px;
+  min-height: 28px;
   align-items: center;
   gap: 4px;
   padding: 0 8px;
@@ -6065,7 +6106,7 @@ main {
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.62);
   color: var(--hero-ink);
-  font-size: 8px;
+  font-size: 10px;
   font-weight: 700;
   cursor: pointer;
 }
@@ -6098,7 +6139,7 @@ main {
 
 .value-filter-row button {
   display: inline-flex;
-  min-height: 25px;
+  min-height: 28px;
   align-items: center;
   gap: 4px;
   padding: 0 7px;
@@ -6106,7 +6147,7 @@ main {
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.56);
   color: var(--hero-muted);
-  font-size: 8px;
+  font-size: 10px;
   font-weight: 700;
 }
 
@@ -6242,11 +6283,11 @@ main {
 
   .community-marker-copy b {
     max-width: 68px;
-    font-size: 8px;
+    font-size: 9px;
   }
 
   .community-marker-copy small {
-    font-size: 7px;
+    font-size: 8px;
   }
 
   .district-detail-active button.map-label.active {
@@ -6486,6 +6527,45 @@ body.map-workspace-open .scroll-cue {
     left: 10px;
     width: auto;
     max-width: none;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 10px 12px;
     transform: none;
+  }
+
+  .hero-map-interactive.map-workspace-active.district-detail-active .map-detail[data-value-tier] .map-detail-copy,
+  .map-workspace-active .map-detail-copy {
+    grid-row: 1;
+    grid-column: 1 / -1;
+    min-height: 0;
+    padding: 0;
+  }
+
+  .hero-map-interactive.map-workspace-active.district-detail-active .map-detail[data-value-tier] .map-back-button,
+  .map-workspace-active .map-back-button {
+    position: static;
+    grid-row: 2;
+    grid-column: 1;
+    width: auto;
+    min-height: 40px;
+    justify-self: start;
+    padding: 0 12px;
+    font-size: inherit;
+  }
+
+  .hero-map-interactive.map-workspace-active.district-detail-active .map-detail[data-value-tier] .community-stepper,
+  .map-workspace-active .community-stepper {
+    position: static;
+    grid-row: 2;
+    grid-column: 2;
+  }
+
+  .map-workspace-active .map-detail-stats {
+    grid-row: 3;
+    grid-column: 1 / -1;
+  }
+
+  .map-workspace-active .community-location-context {
+    grid-row: 4;
+    grid-column: 1 / -1;
   }
 }
