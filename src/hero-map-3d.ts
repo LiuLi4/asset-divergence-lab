@@ -1,4 +1,6 @@
 import * as THREE from 'three'
+import 'maplibre-gl/dist/maplibre-gl.css'
+import type { GeoJSONSource, Map as MapLibreMap, MapGeoJSONFeature, MapMouseEvent, Popup as MapLibrePopup, StyleSpecification } from 'maplibre-gl'
 import {
   applyMapViewPose,
   defaultCommunityMapViewport,
@@ -11,6 +13,7 @@ import {
   type MapViewPose,
 } from './community-drilldown'
 import { buildCommunityLocationContext } from './community-map-context'
+import { buildCommunityFeatureCollection, hasGeographicCoordinate, resolveDistrictGeographicBounds } from './community-geography'
 import { getCommunityNavigationState, navigateCommunitySelection, type CommunityNavigationDirection } from './community-navigation'
 import {
   calculatePurchaseValue,
@@ -72,6 +75,34 @@ const tierColour: Record<CommunityMapTier, string> = {
   watch: '#a66b16',
   cautious: '#b44b59',
   insufficient: '#786991',
+}
+
+const geographicSourceId = 'beijing-communities'
+const geographicPointLayerId = 'beijing-community-points'
+const geographicSelectedLayerId = 'beijing-community-selected'
+
+const geographicMapStyle: StyleSpecification = {
+  version: 8,
+  sources: {
+    openstreetmap: {
+      type: 'raster',
+      tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],
+      tileSize: 256,
+      attribution: '© OpenStreetMap contributors',
+    },
+  },
+  layers: [{
+    id: 'openstreetmap-base',
+    type: 'raster',
+    source: 'openstreetmap',
+    paint: {
+      'raster-saturation': -0.58,
+      'raster-contrast': -0.08,
+      'raster-brightness-min': 0.1,
+      'raster-brightness-max': 0.98,
+      'raster-opacity': 0.86,
+    },
+  }],
 }
 
 const getCommunityTier = (sample: CommunityValueSample): CommunityMapTier => sample.dataStatus === 'insufficient'
@@ -174,6 +205,14 @@ export async function initHeroMap3d(host: HTMLElement) {
     })
   }
 
+  const geographicMapElement = document.createElement('section')
+  geographicMapElement.className = 'community-geographic-map'
+  geographicMapElement.setAttribute('aria-label', '按真实经纬度显示的北京小区地图')
+  geographicMapElement.setAttribute('aria-busy', 'false')
+  geographicMapElement.innerHTML = '<div class="community-geographic-map-canvas"></div><span><i class="ph ph-crosshair" aria-hidden="true"></i> 真实经纬度 · OpenStreetMap</span>'
+  host.querySelector('.map-hotspots')?.before(geographicMapElement)
+  const geographicMapCanvas = geographicMapElement.querySelector<HTMLElement>('.community-geographic-map-canvas')
+
   const localMap = document.createElement('section')
   localMap.className = 'community-local-map'
   localMap.setAttribute('aria-label', '所选小区的道路与周边公开地图')
@@ -256,11 +295,16 @@ export async function initHeroMap3d(host: HTMLElement) {
   let redrawCommunityLayer = () => undefined
   let updateCommunityNavigator: (records?: CommunityScoreRecord[]) => void = () => undefined
   let activeLocalMapFrame: HTMLIFrameElement | null = null
+  let geographicMap: MapLibreMap | null = null
+  let geographicPopup: MapLibrePopup | null = null
+  let geographicMapLoading: Promise<MapLibreMap | null> | null = null
+  let geographicMapRequestId = 0
   let drillRequestId = 0
   let drillCleanupTimer = 0
   let drillCommitTimer = 0
   let osmPreconnected = false
   let returnToDistrictView = () => undefined
+  let refreshGeographicCommunityLayer = () => undefined
   const communityRecordCache = new Map<DistrictKey, Omit<CommunityScoreRecord, 'position'>[]>()
 
   const clearDrillTimers = () => {
@@ -425,6 +469,7 @@ export async function initHeroMap3d(host: HTMLElement) {
     camera.aspect = width / height
     camera.position.z = width < 560 ? 14.6 : width < 900 ? 13.9 : 13.2
     camera.updateProjectionMatrix()
+    geographicMap?.resize()
     redrawCommunityLayer()
     render()
   }
@@ -433,7 +478,7 @@ export async function initHeroMap3d(host: HTMLElement) {
   resize()
 
   const onPointerDown = (event: PointerEvent) => {
-    if ((event.target as HTMLElement).closest('button')) {
+    if ((event.target as HTMLElement).closest('button, .community-geographic-map')) {
       drag.moved = false
       return
     }
@@ -524,6 +569,19 @@ export async function initHeroMap3d(host: HTMLElement) {
       ...record,
       position: projectCommunityMapPoint(record.sourcePosition, communityViewport),
     }))
+
+  refreshGeographicCommunityLayer = () => {
+    if (!geographicMap || !activeDistrict) return
+    const records = getVisibleCommunityScores(activeDistrict)
+    const source = geographicMap.getSource(geographicSourceId) as GeoJSONSource | undefined
+    if (!source) return
+    source.setData(buildCommunityFeatureCollection(
+      records.map(({ sample }) => sample),
+      calculatePurchaseValue,
+      getCommunityTier,
+    ))
+    geographicMap.setFilter(geographicSelectedLayerId, ['==', ['get', 'id'], activeCommunityId ?? '__none__'])
+  }
 
   updateCommunityNavigator = (records = activeDistrict ? getVisibleCommunityScores(activeDistrict) : []) => {
     if (!activeDistrict) {
@@ -627,6 +685,24 @@ export async function initHeroMap3d(host: HTMLElement) {
 
   const renderCommunityMarkers = (key: DistrictKey) => {
     const records = getVisibleCommunityScores(key)
+    if (host.classList.contains('district-geographic-active') && !records.some(({ sample }) => hasGeographicCoordinate(sample))) {
+      host.classList.remove('district-geographic-active', 'district-geographic-loading')
+    }
+    if (host.classList.contains('district-geographic-active')) {
+      if (communityDots) {
+        communityDots.hidden = true
+        communityDots.getContext('2d')?.clearRect(0, 0, communityDots.width, communityDots.height)
+      }
+      if (communityLayer) {
+        communityLayer.hidden = true
+        communityLayer.innerHTML = ''
+      }
+      if (valueLegend) valueLegend.hidden = false
+      refreshGeographicCommunityLayer()
+      updateLegendState()
+      updateCommunityNavigator(records)
+      return
+    }
     drawCommunityDots(records)
     if (!communityLayer) return
     if (valueLegend) valueLegend.hidden = false
@@ -663,7 +739,7 @@ export async function initHeroMap3d(host: HTMLElement) {
       status.setAttribute('aria-label', `已进入${info.name}小区价值地图`)
     }
     if (statusTitle) statusTitle.innerHTML = `${info.name} · 小区价值<em>${scores.length ? `${average}分` : '暂无评分'}</em>`
-    if (statusSummary) statusSummary.textContent = `成交数据截至 ${formatDataDate(activeDataset.updatedAt)}。有成交证据的小区按分数着色；灰色表示近期成交或同质可比不足。`
+    if (statusSummary) statusSummary.textContent = `点位按真实经纬度映射，成交数据截至 ${formatDataDate(activeDataset.updatedAt)}；灰色表示近期成交或同质可比不足。`
     if (statusStats) {
       statusStats.hidden = false
       statusStats.innerHTML = `<span><small>全部 / 已评分</small><b>${samples.length.toLocaleString('zh-CN')} / ${scoredSamples.length.toLocaleString('zh-CN')}</b></span><span><small>优先核验 / 数据不足</small><b>${strongCount.toLocaleString('zh-CN')} / ${insufficientCount.toLocaleString('zh-CN')}</b></span><span><small>数据截至 / 来源</small><b>${formatDataDate(activeDataset.updatedAt)} · ${escapeHtml(activeDataset.sourceName)}</b></span>`
@@ -698,7 +774,10 @@ export async function initHeroMap3d(host: HTMLElement) {
     closeCommunityLocation(true)
     showDistrictSummary(key, false)
     renderCommunityMarkers(key)
-    if (interactionHint) interactionHint.innerHTML = '<i class="ph ph-cursor-click"></i> 点击小区查看价值 · 拖拽旋转'
+    fitGeographicDistrict()
+    if (interactionHint) interactionHint.innerHTML = host.classList.contains('district-geographic-active')
+      ? '<i class="ph ph-map-trifold"></i> 真实经纬度 · 拖拽平移 / 滚轮缩放'
+      : '<i class="ph ph-cursor-click"></i> 点击小区查看价值 · 拖拽旋转'
     if (exitButton) {
       exitButton.innerHTML = '<i class="ph ph-arrow-left" aria-hidden="true"></i> 北京全图'
       exitButton.setAttribute('aria-label', '返回北京全图')
@@ -715,6 +794,13 @@ export async function initHeroMap3d(host: HTMLElement) {
       const districtPose = resolveDistrictMapPose(info.focus, info.offset, host.clientWidth)
       applyMapViewPose(target, resolveCommunityDrillPose(districtPose, sourcePosition, host.clientWidth, communityViewport.zoom))
       host.classList.add('community-focus-active')
+      if (geographicMap && sample.longitude !== undefined && sample.latitude !== undefined) {
+        geographicMap.easeTo({
+          center: [sample.longitude, sample.latitude],
+          zoom: Math.max(geographicMap.getZoom(), host.clientWidth < 600 ? 14.2 : 14.8),
+          duration: reducedMotion ? 0 : 720,
+        })
+      }
     }
     const scoreBreakdown = getCommunityScoreBreakdown(sample)
     const score = scoreBreakdown.purchaseValueScore
@@ -774,13 +860,146 @@ export async function initHeroMap3d(host: HTMLElement) {
     renderCommunityMarkers(sample.district)
     if (interactionHint) interactionHint.innerHTML = openVicinity
       ? '<i class="ph ph-map-pin"></i> 已进入街区地图 · 可切换相邻小区'
-      : `<i class="ph ph-magnifying-glass-plus"></i> 区域已放大 ${communityViewport.zoom.toFixed(2)}× · 点击其他点继续查看`
+      : host.classList.contains('district-geographic-active')
+        ? '<i class="ph ph-crosshair"></i> 已定位到真实坐标 · 再次点击进入小区周边'
+        : `<i class="ph ph-magnifying-glass-plus"></i> 区域已放大 ${communityViewport.zoom.toFixed(2)}× · 点击其他点继续查看`
     if (exitButton && activeDistrict) {
       exitButton.innerHTML = openVicinity
         ? '<i class="ph ph-arrow-left" aria-hidden="true"></i> 返回小区点位'
         : `<i class="ph ph-arrow-left" aria-hidden="true"></i> 返回${escapeHtml(districts[activeDistrict].name)}`
       exitButton.setAttribute('aria-label', openVicinity ? `返回${sample.name}点位地图` : `返回${districts[activeDistrict].name}小区价值地图`)
     }
+  }
+
+  const fitGeographicDistrict = (duration = reducedMotion ? 0 : 760) => {
+    if (!geographicMap || !activeDistrict) return
+    const bounds = resolveDistrictGeographicBounds(activeDistrict, activeCommunities)
+    geographicMap.fitBounds(bounds, {
+      padding: host.clientWidth < 600
+        ? { top: 128, right: 26, bottom: 190, left: 26 }
+        : { top: 118, right: 56, bottom: 166, left: 56 },
+      duration,
+      maxZoom: 13.2,
+    })
+  }
+
+  const openDistrictGeographicMap = async () => {
+    if (!geographicMapCanvas || !activeDistrict) return
+    if (!getCommunitySamples(activeDistrict, activeCommunities).some(hasGeographicCoordinate)) return
+    const requestId = ++geographicMapRequestId
+    geographicMapElement.setAttribute('aria-busy', 'true')
+    host.classList.add('district-geographic-loading')
+    preconnectOpenStreetMap()
+
+    if (!geographicMapLoading) {
+      geographicMapLoading = import('maplibre-gl').then(({ Map, Popup }) => new Promise<MapLibreMap>((resolve, reject) => {
+        const mapInstance = new Map({
+          container: geographicMapCanvas,
+          style: geographicMapStyle,
+          center: [116.4074, 39.9042],
+          zoom: 9.2,
+          minZoom: 8,
+          maxZoom: 18,
+          attributionControl: {},
+          pitchWithRotate: false,
+          dragRotate: false,
+          touchPitch: false,
+        })
+        geographicPopup = new Popup({ closeButton: false, closeOnClick: false, offset: 10 })
+        mapInstance.once('load', () => {
+          mapInstance.addSource(geographicSourceId, {
+            type: 'geojson',
+            data: { type: 'FeatureCollection', features: [] },
+          })
+          mapInstance.addLayer({
+            id: geographicPointLayerId,
+            type: 'circle',
+            source: geographicSourceId,
+            paint: {
+              'circle-radius': ['interpolate', ['linear'], ['zoom'], 9, 2.6, 13, 4.2, 16, 6.4],
+              'circle-color': ['match', ['get', 'tier'],
+                'strong', tierColour.strong,
+                'watch', tierColour.watch,
+                'cautious', tierColour.cautious,
+                tierColour.insufficient,
+              ],
+              'circle-opacity': 0.9,
+              'circle-stroke-color': 'rgba(255,255,255,0.9)',
+              'circle-stroke-width': ['interpolate', ['linear'], ['zoom'], 9, 0.8, 16, 1.8],
+            },
+          })
+          mapInstance.addLayer({
+            id: geographicSelectedLayerId,
+            type: 'circle',
+            source: geographicSourceId,
+            filter: ['==', ['get', 'id'], '__none__'],
+            paint: {
+              'circle-radius': ['interpolate', ['linear'], ['zoom'], 9, 7, 16, 12],
+              'circle-color': 'rgba(255,255,255,0.92)',
+              'circle-stroke-color': ['match', ['get', 'tier'],
+                'strong', tierColour.strong,
+                'watch', tierColour.watch,
+                'cautious', tierColour.cautious,
+                tierColour.insufficient,
+              ],
+              'circle-stroke-width': 3,
+            },
+          })
+
+          mapInstance.on('mouseenter', geographicPointLayerId, (event: MapMouseEvent & { features?: MapGeoJSONFeature[] }) => {
+            mapInstance.getCanvas().style.cursor = 'pointer'
+            const feature = event.features?.[0]
+            if (!feature || feature.geometry.type !== 'Point') return
+            const properties = feature.properties as { name?: string; score?: number; tier?: CommunityMapTier }
+            const score = properties.tier === 'insufficient' ? '数据不足' : `${properties.score ?? '—'}分`
+            geographicPopup
+              ?.setLngLat(feature.geometry.coordinates as [number, number])
+              .setHTML(`<b>${escapeHtml(properties.name ?? '小区')}</b><span>${score}</span>`)
+              .addTo(mapInstance)
+          })
+          mapInstance.on('mouseleave', geographicPointLayerId, () => {
+            mapInstance.getCanvas().style.cursor = ''
+            geographicPopup?.remove()
+          })
+          mapInstance.on('click', geographicPointLayerId, (event: MapMouseEvent & { features?: MapGeoJSONFeature[] }) => {
+            const id = String(event.features?.[0]?.properties?.id ?? '')
+            if (!id || !activeDistrict) return
+            const sample = getCommunitySamples(activeDistrict, activeCommunities).find((item) => item.id === id)
+            if (sample) selectCommunity(sample, activeCommunityId === id && host.classList.contains('community-focus-active'))
+          })
+          resolve(mapInstance)
+        })
+        mapInstance.once('error', (event) => {
+          if (!mapInstance.loaded()) reject(event.error ?? new Error('真实地图加载失败'))
+        })
+      })).then((mapInstance) => {
+        if (disposed) {
+          mapInstance.remove()
+          return null
+        }
+        geographicMap = mapInstance
+        return mapInstance
+      }).catch((error) => {
+        geographicMapLoading = null
+        console.warn('真实经纬度地图加载失败，继续显示 3D 艺术地图', error)
+        return null
+      })
+    }
+
+    const mapInstance = await geographicMapLoading
+    if (!mapInstance) {
+      geographicMapElement.setAttribute('aria-busy', 'false')
+      host.classList.remove('district-geographic-loading')
+      return
+    }
+    if (disposed || requestId !== geographicMapRequestId || !activeDistrict) return
+    geographicMapElement.setAttribute('aria-busy', 'false')
+    host.classList.remove('district-geographic-loading')
+    host.classList.add('district-geographic-active')
+    mapInstance.resize()
+    renderCommunityMarkers(activeDistrict)
+    fitGeographicDistrict()
+    if (interactionHint) interactionHint.innerHTML = '<i class="ph ph-map-trifold"></i> 真实经纬度 · 拖拽平移 / 滚轮缩放'
   }
 
   const selectDistrict = (key: DistrictKey) => {
@@ -801,6 +1020,7 @@ export async function initHeroMap3d(host: HTMLElement) {
     applyMapViewPose(target, resolveDistrictMapPose(info.focus, info.offset, host.clientWidth))
     renderCommunityMarkers(key)
     showDistrictSummary(key)
+    void openDistrictGeographicMap()
     if (interactionHint) interactionHint.innerHTML = '<i class="ph ph-cursor-click"></i> 点击小区查看价值 · 拖拽旋转'
     if (exitButton) {
       exitButton.hidden = false
@@ -888,6 +1108,7 @@ export async function initHeroMap3d(host: HTMLElement) {
         applyMapViewPose(target, resolveDistrictMapPose(info.focus, info.offset, host.clientWidth))
         renderCommunityMarkers(activeDistrict)
         showDistrictSummary(activeDistrict)
+        fitGeographicDistrict(0)
       }
     } catch (error) {
       if (dataImportStatus) dataImportStatus.textContent = error instanceof Error ? `导入失败：${error.message}` : '导入失败：文件格式错误'
@@ -922,6 +1143,7 @@ export async function initHeroMap3d(host: HTMLElement) {
         applyMapViewPose(target, resolveDistrictMapPose(info.focus, info.offset, host.clientWidth))
         renderCommunityMarkers(activeDistrict)
         showDistrictSummary(activeDistrict)
+        fitGeographicDistrict(0)
       }
     } catch (error) {
       host.dataset.communityDataReady = 'fallback'
@@ -932,11 +1154,14 @@ export async function initHeroMap3d(host: HTMLElement) {
   }
 
   const reset = () => {
+    geographicMapRequestId += 1
     activeDistrict = null
     activeCommunityId = null
     activeValueFilter = 'all'
     communityViewport = { ...defaultCommunityMapViewport }
-    host.classList.remove('district-detail-active', 'community-focus-active')
+    host.classList.remove('district-detail-active', 'community-focus-active', 'district-geographic-active', 'district-geographic-loading')
+    geographicMapElement.setAttribute('aria-busy', 'false')
+    geographicPopup?.remove()
     delete host.dataset.activeDistrict
     applyMapViewPose(target, { x: -0.035, y: -0.055, z: -0.015, scale: 1, positionX: 0, positionY: 0 })
     host.querySelectorAll<HTMLButtonElement>('[data-map-district]').forEach((button) => {
@@ -1047,6 +1272,9 @@ export async function initHeroMap3d(host: HTMLElement) {
     map.geometry.dispose()
     ;(map.material as THREE.Material).dispose()
     texture.dispose()
+    geographicPopup?.remove()
+    geographicMap?.remove()
+    geographicMap = null
     renderer.dispose()
   }
 }
