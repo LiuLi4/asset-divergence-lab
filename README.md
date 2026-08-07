@@ -4,6 +4,14 @@
 
 在线体验：<https://liuli4.github.io/asset-divergence-lab/>
 
+## 项目演示
+
+[![北京房屋交易价值地图演示：从北京全图下钻到西城区、小区价值详情和周边街区地图](docs/media/beijing-homebuying-demo-cover.jpg)](docs/media/beijing-homebuying-demo.mp4?raw=1)
+
+点击封面播放 54 秒完整演示：北京全图 → 西城区 1,018 个小区 → 小区价值点选 → 白广路 6 号院价值详情 → 周边街区地图。
+
+[▶ 播放完整演示视频](docs/media/beijing-homebuying-demo.mp4?raw=1)
+
 ## 本地运行
 
 ```bash
