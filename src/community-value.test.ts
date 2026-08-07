@@ -58,6 +58,26 @@ describe('community purchase value model', () => {
     expect(position.y).toBeLessThanOrEqual(100)
   })
 
+  it('keeps real edge coordinates inside the calibrated district viewport instead of clamping them', () => {
+    const westFengtai = resolveCommunityPosition({
+      ...communityValueSamples[0],
+      district: 'fengtai',
+      longitude: 116.099262,
+      latitude: 39.84,
+      position: undefined,
+    })
+    const northEastXicheng = resolveCommunityPosition({
+      ...communityValueSamples[0],
+      district: 'xicheng',
+      longitude: 116.403282,
+      latitude: 39.978387,
+      position: undefined,
+    })
+    expect(westFengtai.x).toBeGreaterThan(22)
+    expect(northEastXicheng.x).toBeLessThan(78)
+    expect(northEastXicheng.y).toBeGreaterThan(26)
+  })
+
   it('rejects duplicate ids and invalid value-model fields', () => {
     const sample = communityValueSamples[0]
     expect(() => parseCommunityValueDataset([sample, sample])).toThrow('重复 id')

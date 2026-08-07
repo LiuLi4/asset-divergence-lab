@@ -1,4 +1,5 @@
 import { calculateEmploymentAccess, calculatePriceOpportunityScore, calculatePurchaseValueScore, qualityDimensionWeights, type QualityDimensionKey } from './property-score'
+import { districtGeographicBounds, projectCoordinateToDistrictPercent } from './community-geography'
 
 export type DistrictKey = 'haidian' | 'chaoyang' | 'shijingshan' | 'xicheng' | 'fengtai' | 'tongzhou' | 'daxing'
 
@@ -57,17 +58,7 @@ export function formatDataDate(value: string) {
   return parsed.toISOString().slice(0, 10)
 }
 
-const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value))
 const districtKeys: DistrictKey[] = ['haidian', 'chaoyang', 'shijingshan', 'xicheng', 'fengtai', 'tongzhou', 'daxing']
-const districtBounds: Record<DistrictKey, { minLongitude: number; maxLongitude: number; minLatitude: number; maxLatitude: number }> = {
-  haidian: { minLongitude: 116.03, maxLongitude: 116.39, minLatitude: 39.87, maxLatitude: 40.16 },
-  chaoyang: { minLongitude: 116.36, maxLongitude: 116.65, minLatitude: 39.80, maxLatitude: 40.13 },
-  shijingshan: { minLongitude: 116.11, maxLongitude: 116.27, minLatitude: 39.87, maxLatitude: 40.00 },
-  xicheng: { minLongitude: 116.32, maxLongitude: 116.39, minLatitude: 39.87, maxLatitude: 39.97 },
-  fengtai: { minLongitude: 116.22, maxLongitude: 116.48, minLatitude: 39.76, maxLatitude: 39.91 },
-  tongzhou: { minLongitude: 116.52, maxLongitude: 116.93, minLatitude: 39.74, maxLatitude: 40.03 },
-  daxing: { minLongitude: 116.24, maxLongitude: 116.72, minLatitude: 39.44, maxLatitude: 39.83 },
-}
 
 const numberInRange = (value: unknown, min: number, max: number) => typeof value === 'number' && Number.isFinite(value) && value >= min && value <= max
 const nonEmptyString = (value: unknown) => typeof value === 'string' && value.trim().length > 0
@@ -117,10 +108,8 @@ export function resolveCommunityPosition(sample: CommunityValueSample): Communit
   }
 
   if (numberInRange(sample.longitude, 70, 140) && numberInRange(sample.latitude, 10, 60)) {
-    const bounds = districtBounds[sample.district]
-    const xRatio = clamp((sample.longitude! - bounds.minLongitude) / (bounds.maxLongitude - bounds.minLongitude), 0, 1)
-    const yRatio = clamp((bounds.maxLatitude - sample.latitude!) / (bounds.maxLatitude - bounds.minLatitude), 0, 1)
-    return { x: 22 + xRatio * 56, y: 26 + yRatio * 41 }
+    const position = projectCoordinateToDistrictPercent(sample.longitude!, sample.latitude!, districtGeographicBounds[sample.district])
+    return { x: 22 + position.x * 0.56, y: 26 + position.y * 0.41 }
   }
 
   const hash = stableHash(`${sample.district}:${sample.id}:${sample.name}`)
