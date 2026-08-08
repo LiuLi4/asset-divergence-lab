@@ -1,0 +1,26 @@
+{
+  "name": "asset-divergence-lab-douyin-video",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "capture": "node scripts/capture.mjs",
+    "studio": "remotion studio src/index.ts",
+    "render": "remotion render src/index.ts BeijingHomebuyingDouyin out/beijing-homebuying-douyin.mp4",
+    "render:nobgm": "remotion render src/index.ts BeijingHomebuyingDouyin out/beijing-homebuying-douyin-nobgm.mp4 --props=props-nobgm.json",
+    "typecheck": "tsc --noEmit",
+    "check": "npm run typecheck"
+  },
+  "dependencies": {
+    "@remotion/cli": "4.0.484",
+    "@remotion/motion-blur": "4.0.484",
+    "react": "19.2.7",
+    "react-dom": "19.2.7",
+    "remotion": "4.0.484"
+  },
+  "devDependencies": {
+    "@types/react": "^19.2.17",
+    "playwright-core": "^1.54.0",
+    "typescript": "^6.0.3"
+  }
+}

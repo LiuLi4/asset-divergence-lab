@@ -1,0 +1,411 @@
+{
+  "viewport": {
+    "width": 1920,
+    "height": 1080,
+    "deviceScaleFactor": 2
+  },
+  "pages": {
+    "map-overview": {
+      "url": "http://127.0.0.1:4173/",
+      "scrollY": 0,
+      "boxes": {
+        "#heroMap3d": {
+          "x": 691.03125,
+          "y": 222.921875,
+          "width": 1010,
+          "height": 680.15625
+        },
+        "#mapDistrictDetail": {
+          "x": 1310.34375,
+          "y": 799.28125,
+          "width": 320,
+          "height": 63
+        },
+        ".map-hotspots": {
+          "x": 691.03125,
+          "y": 222.921875,
+          "width": 1010,
+          "height": 680.15625
+        }
+      }
+    },
+    "map-xicheng": {
+      "url": "http://127.0.0.1:4173/",
+      "scrollY": 0,
+      "boxes": {
+        "#heroMap3d": {
+          "x": 0,
+          "y": 0,
+          "width": 1920,
+          "height": 1080
+        },
+        "#mapDistrictDetail": {
+          "x": 1252,
+          "y": 899.109375,
+          "width": 640,
+          "height": 152.890625
+        },
+        ".map-value-legend": {
+          "x": 28,
+          "y": 92,
+          "width": 330.140625,
+          "height": 114.4375
+        }
+      }
+    },
+    "xicheng-detail": {
+      "selector": "#mapDistrictDetail",
+      "box": {
+        "x": 1252,
+        "y": 899.109375,
+        "width": 640,
+        "height": 152.890625
+      }
+    },
+    "map-community": {
+      "url": "http://127.0.0.1:4173/",
+      "scrollY": 0,
+      "boxes": {
+        "#heroMap3d": {
+          "x": 0,
+          "y": 0,
+          "width": 1920,
+          "height": 1080
+        },
+        "#mapDistrictDetail": {
+          "x": 1272,
+          "y": 601,
+          "width": 620,
+          "height": 451
+        },
+        ".community-location-context": {
+          "x": 1287,
+          "y": 788,
+          "width": 590,
+          "height": 251
+        },
+        ".community-geographic-map": {
+          "x": 0,
+          "y": 0,
+          "width": 1920,
+          "height": 1080
+        }
+      }
+    },
+    "community-detail": {
+      "selector": "#mapDistrictDetail",
+      "box": {
+        "x": 1272,
+        "y": 601,
+        "width": 620,
+        "height": 451
+      }
+    },
+    "community-evidence": {
+      "selector": ".community-location-context",
+      "box": {
+        "x": 1287,
+        "y": 788,
+        "width": 590,
+        "height": 251
+      }
+    },
+    "map-vicinity": {
+      "url": "http://127.0.0.1:4173/",
+      "scrollY": 0,
+      "boxes": {
+        "#heroMap3d": {
+          "x": 0,
+          "y": 0,
+          "width": 1920,
+          "height": 1080
+        },
+        "#mapDistrictDetail": {
+          "x": 1272,
+          "y": 577,
+          "width": 620,
+          "height": 451
+        },
+        ".community-local-map": {
+          "x": 0,
+          "y": 0,
+          "width": 1920,
+          "height": 1080
+        },
+        ".community-location-context": {
+          "x": 1287,
+          "y": 764,
+          "width": 590,
+          "height": 251
+        }
+      }
+    },
+    "model-results": {
+      "url": "http://127.0.0.1:4173/",
+      "scrollY": 984,
+      "boxes": {
+        "#model": {
+          "x": 320,
+          "y": 96,
+          "width": 1280,
+          "height": 1712.0625
+        },
+        ".results-panel": {
+          "x": 758.734375,
+          "y": 317,
+          "width": 776.265625,
+          "height": 1362.0625
+        },
+        ".decision-card": {
+          "x": 786.734375,
+          "y": 860.765625,
+          "width": 240.078125,
+          "height": 278.375
+        },
+        ".wealth-card": {
+          "x": 1026.8125,
+          "y": 860.765625,
+          "width": 240.09375,
+          "height": 278.375
+        },
+        ".risk-card": {
+          "x": 1266.90625,
+          "y": 860.765625,
+          "width": 240.09375,
+          "height": 278.375
+        }
+      }
+    },
+    "scenario-switch-self": {
+      "selector": ".scenario-switch",
+      "box": {
+        "x": 1339,
+        "y": 352.6875,
+        "width": 168,
+        "height": 50
+      }
+    },
+    "decision-card": {
+      "selector": ".decision-card",
+      "box": {
+        "x": 786.734375,
+        "y": 801.765625,
+        "width": 240.078125,
+        "height": 278.375
+      }
+    },
+    "wealth-card": {
+      "selector": ".wealth-card",
+      "box": {
+        "x": 1026.8125,
+        "y": 801.765625,
+        "width": 240.09375,
+        "height": 278.375
+      }
+    },
+    "risk-card": {
+      "selector": ".risk-card",
+      "box": {
+        "x": 1266.90625,
+        "y": 801.765625,
+        "width": 240.09375,
+        "height": 278.375
+      }
+    },
+    "model-rent-results": {
+      "url": "http://127.0.0.1:4173/",
+      "scrollY": 1043,
+      "boxes": {
+        "#model": {
+          "x": 320,
+          "y": 37,
+          "width": 1280,
+          "height": 1712.0625
+        },
+        ".results-panel": {
+          "x": 758.734375,
+          "y": 258,
+          "width": 776.265625,
+          "height": 1362.0625
+        },
+        ".decision-card": {
+          "x": 786.734375,
+          "y": 801.765625,
+          "width": 240.078125,
+          "height": 278.375
+        },
+        ".wealth-card": {
+          "x": 1026.8125,
+          "y": 801.765625,
+          "width": 240.09375,
+          "height": 278.375
+        },
+        ".risk-card": {
+          "x": 1266.90625,
+          "y": 801.765625,
+          "width": 240.09375,
+          "height": 278.375
+        }
+      }
+    },
+    "scenario-switch-rent": {
+      "selector": ".scenario-switch",
+      "box": {
+        "x": 1339,
+        "y": 293.6875,
+        "width": 168,
+        "height": 50
+      }
+    },
+    "decision-card-rent": {
+      "selector": ".decision-card",
+      "box": {
+        "x": 786.734375,
+        "y": 801.765625,
+        "width": 240.078125,
+        "height": 278.375
+      }
+    },
+    "wealth-card-rent": {
+      "selector": ".wealth-card",
+      "box": {
+        "x": 1026.8125,
+        "y": 801.765625,
+        "width": 240.09375,
+        "height": 278.375
+      }
+    },
+    "risk-card-rent": {
+      "selector": ".risk-card",
+      "box": {
+        "x": 1266.90625,
+        "y": 801.765625,
+        "width": 240.09375,
+        "height": 278.375
+      }
+    },
+    "wealth-chart": {
+      "url": "http://127.0.0.1:4173/",
+      "scrollY": 1043,
+      "boxes": {
+        ".wealth-chart-card": {
+          "x": 786.734375,
+          "y": 384.390625,
+          "width": 720.265625,
+          "height": 401.375
+        },
+        ".chart-legend": {
+          "x": 1209.375,
+          "y": 405.390625,
+          "width": 276.625,
+          "height": 15.390625
+        },
+        ".wealth-chart-stage": {
+          "x": 807.734375,
+          "y": 470.171875,
+          "width": 678.265625,
+          "height": 276
+        }
+      }
+    },
+    "wealth-chart-card": {
+      "selector": ".wealth-chart-card",
+      "box": {
+        "x": 786.734375,
+        "y": 384.390625,
+        "width": 720.265625,
+        "height": 401.375
+      }
+    },
+    "stress-matrix": {
+      "url": "http://127.0.0.1:4173/",
+      "scrollY": 1879,
+      "boxes": {
+        ".matrix-card": {
+          "x": 786.734375,
+          "y": 396.421875,
+          "width": 720.265625,
+          "height": 287.265625
+        },
+        ".scenario-matrix": {
+          "x": 811.734375,
+          "y": 457.609375,
+          "width": 670.265625,
+          "height": 159.890625
+        }
+      }
+    },
+    "stress-matrix-card": {
+      "selector": ".matrix-card",
+      "box": {
+        "x": 786.734375,
+        "y": 396.421875,
+        "width": 720.265625,
+        "height": 287.265625
+      }
+    },
+    "candidate-comparison": {
+      "url": "http://127.0.0.1:4173/",
+      "scrollY": 3506,
+      "boxes": {
+        "#selection": {
+          "x": 320,
+          "y": 95.609375,
+          "width": 1280,
+          "height": 2812.734375
+        },
+        ".comparison-panel": {
+          "x": 896,
+          "y": 870.671875,
+          "width": 320,
+          "height": 1909.671875
+        },
+        ".comparison-list": {
+          "x": 937,
+          "y": 1028.0625,
+          "width": 238,
+          "height": 242.59375
+        }
+      }
+    },
+    "candidate-comparison-panel": {
+      "selector": ".comparison-panel",
+      "box": {
+        "x": 896,
+        "y": -0.328125,
+        "width": 320,
+        "height": 1909.671875
+      }
+    },
+    "candidate-a": {
+      "selector": ".comparison-row",
+      "index": 0,
+      "box": {
+        "x": 937,
+        "y": 157.0625,
+        "width": 238,
+        "height": 75.53125
+      }
+    },
+    "candidate-b": {
+      "selector": ".comparison-row",
+      "index": 1,
+      "box": {
+        "x": 937,
+        "y": 240.59375,
+        "width": 238,
+        "height": 75.53125
+      }
+    },
+    "candidate-c": {
+      "selector": ".comparison-row",
+      "index": 2,
+      "box": {
+        "x": 937,
+        "y": 324.125,
+        "width": 238,
+        "height": 75.53125
+      }
+    }
+  }
+}
