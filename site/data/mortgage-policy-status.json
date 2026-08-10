@@ -1,0 +1,36 @@
+{
+  "checkedAt": "2026-08-09T14:26:38.132Z",
+  "policyVersion": "2026-08-08",
+  "sourceChecks": [
+    {
+      "id": "beijing-provident-fund-faq",
+      "url": "https://gjj.beijing.gov.cn/web/zwfw5/1747335/1747338/743726795/index.html",
+      "ok": true
+    },
+    {
+      "id": "beijing-provident-fund-rate",
+      "url": "https://gjj.beijing.gov.cn/web/zwgk61/2024zcwj/436433464/436433467/743903614/index.html",
+      "ok": true
+    },
+    {
+      "id": "beijing-housing-policy-2026",
+      "url": "https://gjj.beijing.gov.cn/web/zwgk61/2024zcwj/436433464/436433467/744089355/index.html",
+      "ok": true
+    },
+    {
+      "id": "beijing-housing-policy-2025",
+      "url": "https://gjj.beijing.gov.cn/web/zwgk61/2024zcwj/436433464/436433467/743889727/index.html",
+      "ok": true
+    },
+    {
+      "id": "beijing-provident-fund-policy-index",
+      "url": "https://gjj.beijing.gov.cn/web/zwgk61/2024zcwj/436433464/436433467/30900705-1.html",
+      "ok": true
+    },
+    {
+      "id": "lpr-announcement",
+      "url": "https://www.chinamoney.com.cn/chinese/bklpr/",
+      "ok": true
+    }
+  ]
+}
